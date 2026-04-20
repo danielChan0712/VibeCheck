@@ -3,33 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Video - VibeCheck</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Video | VibeCheck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-  <div class="app">
-    <div class="sidebar">
-      <div class="logo">🎬 VibeCheck</div>
-      <nav>
-        <a href="home.html">🏠 Home</a>
-        <a href="profile.html">👤 Profile</a>
-        <a href="#" id="logoutBtn">🚪 Logout</a>
-      </nav>
-    </div>
+<body data-page="video">
+  <div class="app-shell">
+    <aside class="sidebar glass">
+      <a class="brand-link" href="/home.html">
+        <span class="logo-mini"></span>
+        <strong>VibeCheck</strong>
+      </a>
 
-    <div class="main video-page">
-      <div class="video-player-container">
-        <video id="videoPlayer" controls autoplay></video>
-        <div class="video-info" id="videoInfo"></div>
-        <div class="video-actions" id="videoActions"></div>
-      </div>
-      <div class="comments-section" id="commentsSection"></div>
-    </div>
+      <nav class="menu">
+        <a class="menu-link" href="/home.html">Home</a>
+        <a class="menu-link" href="/my-profile.html" id="myProfileLink">My Profile</a>
+        <a class="menu-link" href="#" id="logoutLink">Logout</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <section class="video-layout">
+        <div class="video-player-panel glass" id="videoPlayerWrap"></div>
+
+        <div class="panel glass">
+          <div id="videoMeta"></div>
+
+          <section class="comment-section">
+            <div class="section-head">
+              <h2>Comments</h2>
+            </div>
+
+            <form id="commentForm" class="comment-form">
+              <input type="text" name="text" placeholder="Write a comment..." required>
+              <button class="btn btn-primary" type="submit">Post comment</button>
+            </form>
+
+            <p id="commentMessage" class="status-text"></p>
+            <div id="commentList" class="comment-list"></div>
+          </section>
+        </div>
+      </section>
+    </main>
   </div>
-  <script src="script.js"></script>
-  <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    loadVideo(urlParams.get('id'));
-  </script>
+
+  <script src="/script.js" defer></script>
 </body>
 </html>

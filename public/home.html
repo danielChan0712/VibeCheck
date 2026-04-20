@@ -3,50 +3,81 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Home - VibeCheck</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Home | VibeCheck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-  <div class="app">
-    <div class="sidebar">
-      <div class="logo">🎬 VibeCheck</div>
-      <nav>
-        <a href="home.html" class="active">🏠 Home</a>
-        <a href="profile.html">👤 Profile</a>
-        <a href="#" id="logoutBtn">🚪 Logout</a>
+<body data-page="home">
+  <div class="app-shell">
+    <aside class="sidebar glass">
+      <a class="brand-link" href="/home.html">
+        <span class="logo-mini"></span>
+        <strong>VibeCheck</strong>
+      </a>
+
+      <nav class="menu">
+        <a class="menu-link active" href="/home.html">Home</a>
+        <a class="menu-link" href="/my-profile.html" id="myProfileLink">My Profile</a>
+        <a class="menu-link" href="#" id="logoutLink">Logout</a>
       </nav>
-      <div class="last-login">Discover. Upload. Recommend.</div>
-    </div>
+    </aside>
 
-    <div class="main">
-      <div class="feed-header">
-        <h2>For You</h2>
-        <span class="badge">✨ Trending</span>
-      </div>
-
-      <section id="uploadMount"></section>
-
-      <section class="recommendation-block">
-        <div class="feed-header">
-          <h3 id="recommendationTitle">Recommended for you</h3>
-          <span class="badge">Smart Picks</span>
+    <main class="content">
+      <section class="hero-strip glass">
+        <div>
+          <p class="eyebrow">For you</p>
+          <h1>Recommendations that follow your favorite tag.</h1>
+          <p class="muted" id="welcomeText">Loading your profile...</p>
         </div>
-        <div class="video-feed" id="recommendedFeed"></div>
       </section>
 
-      <section>
-        <div class="feed-header">
-          <h3>Latest Feed</h3>
-          <span class="badge">All Videos</span>
+      <section class="panel glass">
+        <div class="section-head">
+          <h2>Upload a video</h2>
+          <p class="muted">Optional demo upload. If you are not logged in, login first.</p>
         </div>
-        <div class="video-feed" id="videoFeed"></div>
+
+        <form id="uploadForm" class="upload-form" enctype="multipart/form-data">
+          <input type="text" name="title" placeholder="Video title" required>
+          <input type="text" name="caption" placeholder="Caption">
+          <select name="category">
+            <option value="art">Art</option>
+            <option value="music">Music</option>
+            <option value="dance">Dance</option>
+            <option value="general">General</option>
+          </select>
+          <input type="file" name="videoFile" accept="video/*" required>
+          <button class="btn btn-primary" type="submit">Upload</button>
+        </form>
+
+        <p id="uploadMessage" class="status-text"></p>
       </section>
-    </div>
+
+      <section class="panel glass">
+        <div class="section-head section-head-split">
+          <div>
+            <h2>Recommended for you</h2>
+            <p class="muted">Sort videos by the signal you care about most.</p>
+          </div>
+
+          <label class="sort-control" for="recommendationSort">
+            <span class="muted">Sort by</span>
+            <select id="recommendationSort">
+              <option value="views">Views</option>
+              <option value="likes">Likes</option>
+              <option value="comments">Comments</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="recommendationGrid" class="video-grid"></div>
+        <p id="recommendationMessage" class="status-text"></p>
+      </section>
+    </main>
   </div>
-  <script src="script.js"></script>
-  <script>
-    loadFeed();
-    loadRecommendations();
-  </script>
+
+  <script src="/script.js" defer></script>
 </body>
 </html>

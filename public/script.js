@@ -1,328 +1,398 @@
-const API = {
-  async request(url, options = {}) {
-    const res = await fetch(url, {
-      credentials: 'include',
-      ...options
-    });
+const page = document.body.dataset.page;
 
-    const contentType = res.headers.get('content-type') || '';
-    const data = contentType.includes('application/json') ? await res.json() : await res.text();
-    if (!res.ok) throw new Error(data.error || 'Request failed');
-    return data;
-  },
-  get(url) {
-    return this.request(url);
-  },
-  post(url, data, isForm = false) {
-    return this.request(url, {
-      method: 'POST',
-      headers: isForm ? undefined : { 'Content-Type': 'application/json' },
-      body: isForm ? data : JSON.stringify(data)
-    });
-  }
-};
-
-async function checkAuth() {
-  const result = await API.get('/api/me');
-  if (!result.loggedIn && !window.location.pathname.includes('login')) {
-    window.location.href = '/login.html';
-  }
-  return result;
-}
-
-function showMessage(message, type = 'error') {
-  const box = document.getElementById('message');
-  if (box) box.innerHTML = `<div class="${type}">${message}</div>`;
-}
-
-async function login(email, password) {
-  try {
-    const result = await API.post('/api/login', { email, password });
-    if (result.success) window.location.href = '/home.html';
-  } catch (err) {
-    showMessage(err.message, 'error');
-  }
-}
-
-async function signup(username, email, password) {
-  try {
-    const result = await API.post('/api/signup', { username, email, password });
-    if (result.success) window.location.href = '/home.html';
-  } catch (err) {
-    showMessage(err.message, 'error');
-  }
-}
-
-async function logout() {
-  await API.post('/api/logout', {});
-  window.location.href = '/login.html';
-}
-
-function demoLogin(email) {
-  const emailInput = document.getElementById('email');
-  const passwordInput = document.getElementById('password');
-  if (emailInput) emailInput.value = email;
-  if (passwordInput) passwordInput.value = 'password123';
-}
-
-function showSignup() {
-  const container = document.querySelector('.auth-container');
-  if (!container) return;
-  container.innerHTML = `
-    <h1>🎬 VibeCheck</h1>
-    <h2>Sign Up</h2>
-    <form id="signupForm">
-      <input type="text" id="username" placeholder="Username" required>
-      <input type="email" id="email" placeholder="Email" required>
-      <input type="password" id="password" placeholder="Password" required>
-      <button type="submit">Create Account</button>
-    </form>
-    <p>Already have an account? <a href="#" id="goLogin">Login</a></p>
-    <div id="message"></div>
-  `;
-
-  document.getElementById('goLogin').addEventListener('click', e => {
-    e.preventDefault();
-    window.location.reload();
+async function api(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    headers: options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' },
+    ...options
   });
 
-  document.getElementById('signupForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    await signup(
-      document.getElementById('username').value.trim(),
-      document.getElementById('email').value.trim(),
-      document.getElementById('password').value
-    );
-  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Request failed');
+  return data;
 }
 
-function renderUploadBox() {
+function queryParam(name) {
+  return new URLSearchParams(window.location.search).get(name);
+}
+
+function getVideoUrl(video) {
+  return video?.video_url || video?.videourl || video?.videoUrl || '';
+}
+
+function getThumbUrl(video) {
+  const url = video?.thumbnail_url || video?.thumbnail;
+  if (url && url.trim()) return url;
+  return 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=900&q=80';
+}
+
+function getUserId(video) {
+  return video?.user_id || video?.userid || video?.userId || '';
+}
+
+function getAvatarUrl(user) {
+  return user?.avatar || '/default.png';
+}
+
+function getCreatedAt(item) {
+  return item?.created_at || item?.createdat || item?.createdAt || '';
+}
+
+function getTitle(video) {
+  return video?.title || 'Untitled video';
+}
+
+function cardTemplate(video) {
   return `
-    <div class="upload-box">
-      <h3>Upload video</h3>
-      <form id="uploadForm" class="upload-form">
-        <input type="file" id="videoFile" name="video" accept="video/*" required>
-        <input type="text" id="videoCaption" name="caption" placeholder="Caption with hashtags, e.g. #music #live" required>
-        <input type="text" id="videoCategory" name="category" placeholder="Optional category, e.g. music">
-        <button type="submit">Upload</button>
-      </form>
-      <div id="uploadMessage"></div>
-    </div>
+    <article class="video-card">
+      <img class="video-thumb" src="${getThumbUrl(video)}" alt="${getTitle(video)}" loading="lazy">
+      <div class="video-body">
+        <div class="creator-chip">
+          <img src="${getAvatarUrl(video)}" alt="${video.username || 'Creator'}">
+          <div>
+            <strong>${video.username || 'Unknown creator'}</strong>
+            <div class="muted">${video.category || video.favorite_tag || 'Creator'}</div>
+          </div>
+        </div>
+
+        <div>
+          <h3>${getTitle(video)}</h3>
+          <p class="muted">${video.caption || ''}</p>
+        </div>
+
+        <div class="meta-row">
+          <span>${video.views || 0} views</span>
+          <span>${video.likes || 0} likes · ${video.comments || 0} comments</span>
+        </div>
+
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="/video.html?id=${video.id}">Watch</a>
+          <a class="btn btn-secondary" href="/profile.html?id=${getUserId(video)}">Profile</a>
+        </div>
+      </div>
+    </article>
   `;
 }
 
-function bindUploadForm() {
-  const form = document.getElementById('uploadForm');
-  if (!form) return;
-  form.addEventListener('submit', async e => {
-    e.preventDefault();
-    const file = document.getElementById('videoFile').files[0];
-    const caption = document.getElementById('videoCaption').value.trim();
-    const category = document.getElementById('videoCategory').value.trim();
-    const box = document.getElementById('uploadMessage');
+async function loadSession() {
+  return api('/api/me').catch(() => ({ loggedIn: false }));
+}
 
-    if (!file) {
-      if (box) box.innerHTML = '<div class="error">Please choose a video file.</div>';
+function wireSidebarLinks(session) {
+  const myProfileLink = document.getElementById('myProfileLink');
+  if (myProfileLink) {
+    myProfileLink.href = session.loggedIn ? '/my-profile.html' : '/login.html';
+  }
+
+  const doLogout = async (e) => {
+    if (e) e.preventDefault();
+    await api('/api/logout', { method: 'POST' }).catch(() => null);
+    window.location.href = '/login.html';
+  };
+
+  const logoutLink = document.getElementById('logoutLink');
+  if (logoutLink) logoutLink.addEventListener('click', doLogout);
+
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) logoutBtn.addEventListener('click', doLogout);
+}
+
+async function initLoginPage() {
+  const loginForm = document.getElementById('loginForm');
+  const signupForm = document.getElementById('signupForm');
+  const msg = document.getElementById('authMessage');
+  const tabs = document.querySelectorAll('[data-auth-tab]');
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      tabs.forEach((t) => t.classList.remove('is-active'));
+      tab.classList.add('is-active');
+      const isLogin = tab.dataset.authTab === 'login';
+      loginForm.classList.toggle('hidden', !isLogin);
+      signupForm.classList.toggle('hidden', isLogin);
+      msg.textContent = '';
+    });
+  });
+
+  loginForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = Object.fromEntries(new FormData(loginForm).entries());
+    try {
+      await api('/api/login', { method: 'POST', body: JSON.stringify(formData) });
+      window.location.href = '/home.html';
+    } catch (error) {
+      msg.textContent = error.message;
+    }
+  });
+
+  signupForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = Object.fromEntries(new FormData(signupForm).entries());
+    try {
+      await api('/api/signup', { method: 'POST', body: JSON.stringify(formData) });
+      window.location.href = '/home.html';
+    } catch (error) {
+      msg.textContent = error.message;
+    }
+  });
+}
+
+async function initHomePage() {
+  const recommendationGrid = document.getElementById('recommendationGrid');
+  const recommendationMessage = document.getElementById('recommendationMessage');
+  const recommendationSort = document.getElementById('recommendationSort');
+  const welcomeText = document.getElementById('welcomeText');
+  const uploadForm = document.getElementById('uploadForm');
+  const uploadMessage = document.getElementById('uploadMessage');
+
+  const session = await loadSession();
+  wireSidebarLinks(session);
+
+  welcomeText.textContent = session.loggedIn
+    ? `Signed in as ${session.user?.username || session.username}. Favorite tag: ${session.user?.favorite_tag || 'Not set'}.`
+    : 'Browsing demo mode. Login to personalize recommendations and upload videos.';
+
+  let recommendations = [];
+
+  function sortVideos(videos, sortBy) {
+    return [...videos].sort((a, b) => {
+      const aValue = Number(a?.[sortBy] || 0);
+      const bValue = Number(b?.[sortBy] || 0);
+      return bValue - aValue;
+    });
+  }
+
+  function renderRecommendations() {
+    if (!recommendations.length) {
+      recommendationGrid.innerHTML = '';
+      recommendationMessage.textContent = 'No recommendations yet.';
       return;
     }
 
+    const sortBy = recommendationSort?.value || 'views';
+    const sorted = sortVideos(recommendations, sortBy);
+    recommendationGrid.innerHTML = sorted.map(cardTemplate).join('');
+    recommendationMessage.textContent = '';
+  }
+
+  try {
+    recommendations = await api('/api/recommendations');
+    renderRecommendations();
+  } catch (error) {
+    recommendationMessage.textContent = error.message;
+  }
+
+  recommendationSort?.addEventListener('change', renderRecommendations);
+
+  uploadForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
     try {
-      const formData = new FormData();
-      formData.append('video', file);
-      formData.append('caption', caption);
-      formData.append('category', category);
-      const result = await API.post('/api/upload', formData, true);
-      if (box) box.innerHTML = `<div class="success">Upload successful. Category: ${result.category}</div>`;
-      form.reset();
-      await loadFeed();
-      await loadRecommendations();
-      await loadProfile();
-    } catch (err) {
-      if (box) box.innerHTML = `<div class="error">${err.message}</div>`;
+      const formData = new FormData(uploadForm);
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Upload failed');
+      uploadMessage.textContent = 'Upload successful. Reloading recommendations...';
+      setTimeout(() => window.location.reload(), 700);
+    } catch (error) {
+      uploadMessage.textContent = error.message;
     }
   });
 }
 
-function renderVideos(videos, containerId) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  container.innerHTML = videos.map(v => `
-    <div class="video-card" onclick="location.href='video.html?id=${v.id}'">
-      <video src="videos/${v.video_url}" muted></video>
-      <div class="video-card-info">
-        <div class="video-card-header">
-          <span class="video-card-username">${v.username}</span>
-          <span class="badge">${v.category || 'general'}</span>
-        </div>
-        <div class="video-card-caption">${v.caption || ''}</div>
-        <div class="video-card-stats">
-          <span>❤️ ${v.likes || 0}</span>
-          <span>💬 ${v.comments || 0}</span>
-          <span>👁️ ${v.views || 0}</span>
-        </div>
-      </div>
-    </div>
-  `).join('');
-}
+async function initMyProfilePage() {
+  const header = document.getElementById('myProfileHeader');
+  const likedGrid = document.getElementById('myLikedGrid');
+  const likedMessage = document.getElementById('myLikedMessage');
+  const commentedGrid = document.getElementById('myCommentedGrid');
+  const commentedMessage = document.getElementById('myCommentedMessage');
+  const recentGrid = document.getElementById('myRecentGrid');
+  const recentMessage = document.getElementById('myRecentMessage');
 
-async function loadFeed() {
-  try {
-    await checkAuth();
-    const videos = await API.get('/api/feed');
-    renderVideos(videos, 'videoFeed');
-  } catch (err) {
-    console.error(err);
+  const session = await loadSession();
+  if (!session.loggedIn) {
+    window.location.href = '/login.html';
+    return;
   }
-}
 
-async function loadRecommendations() {
-  const container = document.getElementById('recommendedFeed');
-  if (!container) return;
+  wireSidebarLinks(session);
+
   try {
-    const data = await API.get('/api/recommendations');
-    const heading = document.getElementById('recommendationTitle');
-    if (heading) heading.textContent = `Recommended for you · ${data.favoriteTag}`;
-    renderVideos(data.videos, 'recommendedFeed');
-  } catch (err) {
-    container.innerHTML = `<div class="error">${err.message}</div>`;
-  }
-}
+    const data = await api('/api/me/profile');
 
-let currentVideoId = null;
-
-async function loadVideo(id) {
-  if (!id) return (window.location.href = '/home.html');
-  try {
-    await checkAuth();
-    currentVideoId = id;
-    const data = await API.get(`/api/videos/${id}`);
-    const video = data.video;
-    const comments = data.comments || [];
-
-    const player = document.getElementById('videoPlayer');
-    if (player) player.src = `videos/${video.video_url}`;
-
-    const info = document.getElementById('videoInfo');
-    if (info) {
-      info.innerHTML = `
-        <div style="display:flex; align-items:center; gap:15px; margin-bottom:10px;">
-          <div>
-            <div style="font-weight:bold; font-size:18px;">${video.username}</div>
-            <div style="color:#666;">${video.bio || ''}</div>
-            <div style="color:#999; margin-top:4px;">Category: ${video.category || 'general'}</div>
+    const user = data.user;
+    header.innerHTML = `
+      <div class="profile-top">
+        <img class="avatar-lg" src="${getAvatarUrl(user)}" alt="${user.username}">
+        <div>
+          <p class="eyebrow">My profile</p>
+          <h1>${user.username}</h1>
+          <p class="muted">${user.bio || 'No bio yet.'}</p>
+          <div class="stat-row">
+            <span>${user.followers || 0} followers</span>
+            <span>${user.following || 0} following</span>
           </div>
         </div>
-        <div style="margin:10px 0;">${video.caption || ''}</div>
-        <div style="color:#666;">${video.views || 0} views</div>
-      `;
-    }
-
-    const actions = document.getElementById('videoActions');
-    if (actions) {
-      actions.innerHTML = `
-        <button class="like-btn ${video.liked ? 'liked' : ''}" onclick="toggleLike(${id})">${video.liked ? 'Unlike' : 'Like'} (${video.likes || 0})</button>
-        <button class="follow-btn ${video.following ? 'following' : ''}" onclick="toggleFollow(${video.user_id})">${video.following ? 'Following' : 'Follow'}</button>
-      `;
-    }
-
-    const commentsSection = document.getElementById('commentsSection');
-    if (commentsSection) {
-      commentsSection.innerHTML = `
-        <h3>Comments (${comments.length})</h3>
-        <form class="comment-form" onsubmit="addComment(event, ${id})">
-          <input type="text" id="commentInput" placeholder="Add a comment..." required>
-          <button type="submit">Post</button>
-        </form>
-        <div class="comments-list">
-          ${comments.map(c => `
-            <div class="comment">
-              <div class="comment-user">${c.username}</div>
-              <div class="comment-text">${c.text}</div>
-              <div class="comment-time">${new Date(c.created_at).toLocaleString()}</div>
-            </div>
-          `).join('') || '<p style="color:#999;">No comments yet</p>'}
-        </div>
-      `;
-    }
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function toggleLike(videoId) {
-  await API.post(`/api/videos/${videoId}/like`, {});
-  await loadVideo(videoId);
-}
-
-async function toggleFollow(userId) {
-  await API.post(`/api/users/${userId}/follow`, {});
-  await loadVideo(currentVideoId);
-}
-
-async function addComment(e, videoId) {
-  e.preventDefault();
-  const input = document.getElementById('commentInput');
-  const text = input.value.trim();
-  if (!text) return;
-  await API.post(`/api/videos/${videoId}/comments`, { text });
-  input.value = '';
-  await loadVideo(videoId);
-}
-
-async function loadProfile() {
-  const profileInfo = document.getElementById('profileInfo');
-  const userVideos = document.getElementById('userVideos');
-  if (!profileInfo || !userVideos) return;
-  try {
-    const result = await API.get('/api/me');
-    if (!result.loggedIn) return (window.location.href = '/login.html');
-    const params = new URLSearchParams(window.location.search);
-    const profileId = params.get('id') || result.userId;
-    const data = await API.get(`/api/users/${profileId}`);
-    const user = data.user;
-    const videos = data.videos || [];
-
-    profileInfo.innerHTML = `
-      <div class="profile-avatar"></div>
-      <div class="profile-details">
-        <h2>${user.username}</h2>
-        <div class="profile-bio">${user.bio || 'No bio yet'}</div>
-        <div class="profile-stats">
-          <div class="stat"><div class="stat-number">${videos.length}</div><div class="stat-label">Videos</div></div>
-          <div class="stat"><div class="stat-number">${user.followers || 0}</div><div class="stat-label">Followers</div></div>
-          <div class="stat"><div class="stat-number">${user.following || 0}</div><div class="stat-label">Following</div></div>
-        </div>
-        <div class="badge">Favorite tag: ${user.favorite_tag || 'trending'}</div>
       </div>
     `;
 
-    userVideos.innerHTML = videos.map(v => `
-      <div class="grid-video" onclick="location.href='video.html?id=${v.id}'">
-        <video src="videos/${v.video_url}"></video>
-        <div class="grid-video-views">${v.views || 0} views · ${v.category || 'general'}</div>
-      </div>
-    `).join('') || '<div class="upload-box">No uploaded videos yet.</div>';
-  } catch (err) {
-    console.error(err);
-    profileInfo.innerHTML = '<div class="error">Failed to load profile.</div>';
+    const liked = data.liked || [];
+    likedGrid.innerHTML = liked.map(cardTemplate).join('');
+    likedMessage.textContent = liked.length ? '' : 'You have not liked any videos yet.';
+
+    const commented = data.commented || [];
+    commentedGrid.innerHTML = commented.map(cardTemplate).join('');
+    commentedMessage.textContent = commented.length ? '' : 'You have not commented on any videos yet.';
+
+    const recent = data.recent || [];
+    recentGrid.innerHTML = recent.map(cardTemplate).join('');
+    recentMessage.textContent = recent.length ? '' : 'No recent views recorded yet.';
+  } catch (error) {
+    likedMessage.textContent = error.message;
+    commentedMessage.textContent = error.message;
+    recentMessage.textContent = error.message;
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const logoutBtn = document.getElementById('logoutBtn');
-  if (logoutBtn) logoutBtn.addEventListener('click', e => { e.preventDefault(); logout(); });
+async function initProfilePage() {
+  const profileId = queryParam('id') || '1';
+  const header = document.getElementById('profileHeader');
+  const grid = document.getElementById('profileVideoGrid');
+  const message = document.getElementById('profileMessage');
 
-  const loginForm = document.getElementById('loginForm');
-  if (loginForm) {
-    loginForm.addEventListener('submit', async e => {
-      e.preventDefault();
-      await login(document.getElementById('email').value.trim(), document.getElementById('password').value);
+  const session = await loadSession();
+  wireSidebarLinks(session);
+
+  try {
+    const data = await api(`/api/users/${profileId}`);
+    const user = data.user;
+    const isOwnProfile = String(session.userId || '') === String(user.id || '');
+
+    header.innerHTML = `
+      <div class="profile-top">
+        <img class="avatar-lg" src="${getAvatarUrl(user)}" alt="${user.username}">
+        <div>
+          <p class="eyebrow">${isOwnProfile ? 'My profile' : 'Artist profile'}</p>
+          <h1>${user.username}</h1>
+          <p class="muted">${user.bio || 'No bio yet.'}</p>
+          <div class="stat-row">
+            <span>${user.followers || 0} followers</span>
+            <span>${user.following || 0} following</span>
+            <span>Favorite tag: ${user.favorite_tag || 'Not set'}</span>
+          </div>
+        </div>
+        ${
+          isOwnProfile
+            ? ''
+            : `<button class="btn btn-primary" id="followBtn">${user.is_following || user.isfollowing ? 'Following' : 'Follow'}</button>`
+        }
+      </div>
+    `;
+
+    grid.innerHTML = (data.videos || []).map(cardTemplate).join('');
+    if (!data.videos?.length) {
+      message.textContent = isOwnProfile
+        ? 'You have not uploaded any videos yet.'
+        : 'This creator has not uploaded any videos yet.';
+    }
+
+    if (!isOwnProfile) {
+      document.getElementById('followBtn')?.addEventListener('click', async () => {
+        try {
+          const result = await api(`/api/users/${profileId}/follow`, { method: 'POST' });
+          document.getElementById('followBtn').textContent = result.following ? 'Following' : 'Follow';
+        } catch (error) {
+          message.textContent = error.message;
+        }
+      });
+    }
+  } catch (error) {
+    message.textContent = error.message;
+  }
+}
+
+async function initVideoPage() {
+  const videoId = queryParam('id') || '1';
+  const playerWrap = document.getElementById('videoPlayerWrap');
+  const meta = document.getElementById('videoMeta');
+  const commentList = document.getElementById('commentList');
+  const commentForm = document.getElementById('commentForm');
+  const commentMessage = document.getElementById('commentMessage');
+
+  const session = await loadSession();
+  wireSidebarLinks(session);
+
+  async function loadVideo() {
+    const data = await api(`/api/videos/${videoId}`);
+    const video = data.video;
+
+    playerWrap.innerHTML = `
+      <video controls poster="${getThumbUrl(video)}">
+        <source src="${getVideoUrl(video)}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    `;
+
+    meta.innerHTML = `
+      <p class="eyebrow">Video page</p>
+      <h1>${getTitle(video)}</h1>
+      <p class="muted">${video.caption || ''}</p>
+      <div class="video-actions">
+        <button class="btn btn-primary" id="likeBtn">${video.liked ? 'Unlike' : 'Like'} · ${video.likes || 0}</button>
+        <a class="btn btn-secondary" href="/profile.html?id=${getUserId(video)}">Open ${video.username || 'creator'}'s profile</a>
+      </div>
+      <p class="muted">By ${video.username || 'Unknown creator'} · ${video.views || 0} views · ${video.comments || 0} comments</p>
+      <p class="muted">${data.creatorBio || video.bio || ''}</p>
+    `;
+
+    const comments = data.comments || [];
+    commentList.innerHTML = comments.map((comment) => `
+      <div class="comment-item">
+        <strong>${comment.username || 'User'}</strong>
+        <p>${comment.text || ''}</p>
+        <small class="muted">${getCreatedAt(comment) ? new Date(getCreatedAt(comment)).toLocaleString() : ''}</small>
+      </div>
+    `).join('');
+
+    document.getElementById('likeBtn')?.addEventListener('click', async () => {
+      try {
+        await api(`/api/videos/${videoId}/like`, { method: 'POST' });
+        await loadVideo();
+      } catch (error) {
+        commentMessage.textContent = error.message;
+      }
     });
   }
 
-  const uploadMount = document.getElementById('uploadMount');
-  if (uploadMount) {
-    uploadMount.innerHTML = renderUploadBox();
-    bindUploadForm();
+  try {
+    await loadVideo();
+  } catch (error) {
+    meta.innerHTML = `<p class="status-text">${error.message}</p>`;
   }
-});
+
+  commentForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const payload = Object.fromEntries(new FormData(commentForm).entries());
+      await api(`/api/videos/${videoId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      commentForm.reset();
+      await loadVideo();
+      commentMessage.textContent = 'Comment posted.';
+    } catch (error) {
+      commentMessage.textContent = error.message;
+    }
+  });
+}
+
+// Page router
+if (page === 'login') initLoginPage();
+if (page === 'home') initHomePage();
+if (page === 'my-profile') initMyProfilePage();
+if (page === 'profile') initProfilePage();
+if (page === 'video') initVideoPage();

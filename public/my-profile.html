@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Profile | VibeCheck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body data-page="my-profile">
+  <div class="app-shell">
+    <aside class="sidebar glass">
+      <a class="brand-link" href="/home.html">
+        <span class="logo-mini"></span>
+        <strong>VibeCheck</strong>
+      </a>
+
+      <nav class="menu">
+        <a class="menu-link" href="/home.html">Home</a>
+        <a class="menu-link active" href="/my-profile.html" id="myProfileLink">My Profile</a>
+        <a class="menu-link" href="#" id="logoutLink">Logout</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <section class="profile-hero glass" id="myProfileHeader"></section>
+
+      <section class="panel glass">
+        <div class="section-head">
+          <div>
+            <h2>Videos you liked</h2>
+            <p class="muted">Clips you have liked.</p>
+          </div>
+        </div>
+        <div id="myLikedGrid" class="video-grid"></div>
+        <p id="myLikedMessage" class="status-text"></p>
+      </section>
+
+      <section class="panel glass">
+        <div class="section-head">
+          <div>
+            <h2>Videos you commented on</h2>
+            <p class="muted">Videos where you joined the conversation.</p>
+          </div>
+        </div>
+        <div id="myCommentedGrid" class="video-grid"></div>
+        <p id="myCommentedMessage" class="status-text"></p>
+      </section>
+
+      <section class="panel glass">
+        <div class="section-head">
+          <div>
+            <h2>Recently viewed</h2>
+            <p class="muted">Your last 5 watched videos.</p>
+          </div>
+        </div>
+        <div id="myRecentGrid" class="video-grid"></div>
+        <p id="myRecentMessage" class="status-text"></p>
+      </section>
+    </main>
+  </div>
+
+  <script src="/script.js" defer></script>
+</body>
+</html>
