@@ -1,0 +1,18 @@
+{
+  "name": "vibecheck",
+  "version": "1.2.0",
+  "description": "COMP3278 Project - revised full stack with upload and recommendation features",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.6.0"
+  }
+}

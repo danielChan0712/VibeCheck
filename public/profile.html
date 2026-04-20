@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile - VibeCheck</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <div class="sidebar">
+      <div class="logo">🎬 VibeCheck</div>
+      <nav>
+        <a href="home.html">🏠 Home</a>
+        <a href="profile.html" class="active">👤 Profile</a>
+        <a href="#" id="logoutBtn">🚪 Logout</a>
+      </nav>
+      <div class="last-login" id="lastLogin">Your profile and uploads</div>
+    </div>
+
+    <div class="main">
+      <div class="profile-header" id="profileInfo"></div>
+      <h3>Your videos</h3>
+      <div class="video-grid" id="userVideos"></div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+  <script>loadProfile();</script>
+</body>
+</html>

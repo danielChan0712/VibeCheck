@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home - VibeCheck</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <div class="sidebar">
+      <div class="logo">🎬 VibeCheck</div>
+      <nav>
+        <a href="home.html" class="active">🏠 Home</a>
+        <a href="profile.html">👤 Profile</a>
+        <a href="#" id="logoutBtn">🚪 Logout</a>
+      </nav>
+      <div class="last-login">Discover. Upload. Recommend.</div>
+    </div>
+
+    <div class="main">
+      <div class="feed-header">
+        <h2>For You</h2>
+        <span class="badge">✨ Trending</span>
+      </div>
+
+      <section id="uploadMount"></section>
+
+      <section class="recommendation-block">
+        <div class="feed-header">
+          <h3 id="recommendationTitle">Recommended for you</h3>
+          <span class="badge">Smart Picks</span>
+        </div>
+        <div class="video-feed" id="recommendedFeed"></div>
+      </section>
+
+      <section>
+        <div class="feed-header">
+          <h3>Latest Feed</h3>
+          <span class="badge">All Videos</span>
+        </div>
+        <div class="video-feed" id="videoFeed"></div>
+      </section>
+    </div>
+  </div>
+  <script src="script.js"></script>
+  <script>
+    loadFeed();
+    loadRecommendations();
+  </script>
+</body>
+</html>
