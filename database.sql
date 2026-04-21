@@ -8,7 +8,7 @@ CREATE TABLE users (
   username VARCHAR(50) UNIQUE NOT NULL,
   email VARCHAR(100) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
-  bio TEXT DEFAULT '',
+  bio TEXT,
   avatar VARCHAR(255) DEFAULT 'https://ui-avatars.com/api/?background=01696f&color=fff&name=User',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   last_login DATETIME NULL
@@ -23,6 +23,7 @@ CREATE TABLE videos (
   video_url VARCHAR(255) NOT NULL,
   thumbnail_url VARCHAR(255) DEFAULT 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=900&q=80',
   views INT DEFAULT 0,
+  is_private TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
