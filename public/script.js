@@ -12,67 +12,6 @@ async function api(url, options = {}) {
   return data;
 }
 
-function getRelativeTime(dateString) {
-  if (!dateString) return '';
-  
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} minutes ago`;
-  if (diffHours < 24) return `${diffHours} hours ago`;
-  if (diffDays < 7) return `${diffDays} days ago`;
-  return date.toLocaleDateString();
-}
-
-function recommendedCardTemplate(video) {
-  return `
-    <article class="video-card recommended-card">
-      <img class="video-thumb" src="${getThumbUrl(video)}" alt="${getTitle(video)}" loading="lazy">
-      <div class="video-body">
-        <div class="creator-chip">
-          <img src="${getAvatarUrl(video)}" alt="${video.username || 'Creator'}">
-          <div>
-            <strong>${video.username || 'Unknown creator'}</strong>
-          </div>
-        </div>
-        <div>
-          <h3>${getTitle(video)}</h3>
-          <p class="muted">${video.caption ? video.caption.substring(0, 60) + (video.caption.length > 60 ? '...' : '') : ''}</p>
-        </div>
-        <div class="meta-row">
-          <span>👁️ ${video.views || 0} views</span>
-          <span>❤️ ${video.likes || 0} likes</span>
-          <span>💬 ${video.comments || 0} comments</span>
-          <span>📅 ${getCreatedAt(video) ? new Date(getCreatedAt(video)).toLocaleDateString() : ''}</span>
-        </div>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="/video.html?id=${video.id}">Watch</a>
-          <a class="btn btn-secondary" href="/profile.html?id=${getUserId(video)}">Profile</a>
-        </div>
-      </div>
-    </article>
-  `;
-}
-
-function userCardTemplate(user) {
-  return `
-    <div class="user-card">
-      <img class="user-avatar" src="${getAvatarUrl(user)}" alt="${user.username}">
-      <div class="user-info">
-        <strong>${user.username}</strong>
-        <p class="muted">${user.bio || 'No bio yet'}</p>
-        <small class="muted">${user.followers || 0} followers</small>
-      </div>
-      <a class="btn btn-secondary" href="/profile.html?id=${user.id}">View Profile</a>
-    </div>
-  `;
-}
-
 function queryParam(name) {
   return new URLSearchParams(window.location.search).get(name);
 }
@@ -103,6 +42,43 @@ function getTitle(video) {
   return video?.title || 'Untitled video';
 }
 
+function userCardTemplate(user) {
+  return `
+    <div class="user-card">
+      <img class="user-avatar" src="${getAvatarUrl(user)}" alt="${user.username || 'User'}">
+      <div class="user-info">
+        <strong>${user.username || 'Unknown user'}</strong>
+        <p class="muted">${user.bio || 'No bio yet.'}</p>
+        <small class="muted">${user.followers || 0} followers</small>
+      </div>
+      <a class="btn btn-secondary" href="/profile.html?id=${user.id}">View profile</a>
+    </div>
+  `;
+}
+
+function uploadedVideoTemplate(video) {
+  const isPrivate = Boolean(video.is_private);
+  return `
+    <article class="video-card">
+      <img class="video-thumb" src="${getThumbUrl(video)}" alt="${getTitle(video)}" loading="lazy">
+      <div class="video-body">
+        <div>
+          <h3>${getTitle(video)}</h3>
+          <p class="muted">${video.caption || ''}</p>
+          <p class="muted">${isPrivate ? 'Private' : 'Public'}</p>
+        </div>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="/video.html?id=${video.id}">Watch</a>
+          <button class="btn btn-secondary" type="button" data-toggle-private="${video.id}" data-private-next="${isPrivate ? 0 : 1}">
+            ${isPrivate ? 'Make Public' : 'Make Private'}
+          </button>
+          <button class="btn btn-secondary" type="button" data-delete-video="${video.id}">Delete</button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
 function cardTemplate(video) {
   return `
     <article class="video-card">
@@ -122,10 +98,8 @@ function cardTemplate(video) {
         </div>
 
         <div class="meta-row">
-          <span>👁️ ${video.views || 0} views</span>
-          <span>❤️ ${video.likes || 0} likes</span>
-          <span>💬 ${video.comments || 0} comments</span>
-          <span>📅 ${getCreatedAt(video) ? new Date(getCreatedAt(video)).toLocaleDateString() : 'Unknown date'}</span>
+          <span>${video.views || 0} views</span>
+          <span>${video.likes || 0} likes · ${video.comments || 0} comments</span>
         </div>
 
         <div class="hero-actions">
@@ -200,440 +174,211 @@ async function initLoginPage() {
   });
 }
 
-// Global variables for filtering
-let allVideos = [];
-let currentFilters = {
-  sortBy: 'views',
-  sortOrder: 'desc',
-  minViews: null,
-  maxViews: null,
-  minLikes: null,
-  maxLikes: null,
-  minComments: null,
-  maxComments: null,
-  startDate: null,
-  endDate: null
-};
-
 async function initHomePage() {
   const recommendationGrid = document.getElementById('recommendationGrid');
   const recommendationMessage = document.getElementById('recommendationMessage');
-  const welcomeText = document.getElementById('welcomeText');
-  const resultCount = document.getElementById('resultCount');
-  const resetFiltersBtn = document.getElementById('resetFiltersBtn');
-  const sortField = document.getElementById('sortField');
+  const recommendationSort = document.getElementById('sortField');
   const sortAscending = document.getElementById('sortAscending');
+  const resultCount = document.getElementById('resultCount');
+  const welcomeText = document.getElementById('welcomeText');
   const uploadForm = document.getElementById('uploadForm');
   const uploadMessage = document.getElementById('uploadMessage');
-
   const toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
   const filterContent = document.getElementById('filterContent');
-  const activeFiltersDiv = document.getElementById('activeFilters');
-  const errorMessage = document.getElementById('filterErrorMessage');
+  const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+  const customDateRange = document.getElementById('customDateRange');
+  const applyDateBtn = document.getElementById('applyDateBtn');
 
   const session = await loadSession();
   wireSidebarLinks(session);
 
-  if (welcomeText) {
-    welcomeText.textContent = session.loggedIn
-      ? `Signed in as ${session.user?.username || session.username || 'User'}.`
-      : 'Browsing demo mode. Login to personalize recommendations and upload videos.';
+  welcomeText.textContent = session.loggedIn
+    ? `Signed in as ${session.user?.username || session.username}. Favorite tag: ${session.user?.favorite_tag || 'Not set'}.`
+    : 'Browsing demo mode. Login to personalize recommendations and upload videos.';
+
+  let recommendations = [];
+
+  function parseNumberInput(id) {
+    const value = document.getElementById(id)?.value?.trim();
+    return value ? Number(value) : null;
   }
 
-  function setError(message = '') {
-    if (!errorMessage) return;
-    errorMessage.textContent = message;
-    errorMessage.classList.toggle('hidden', !message);
+  function parseDateInput(id) {
+    const value = document.getElementById(id)?.value;
+    return value ? new Date(value) : null;
   }
 
-  async function loadVideos() {
-    try {
-      allVideos = await api('/api/recommendations');
-      applyFiltersAndRender();
-    } catch (error) {
-      if (recommendationMessage) recommendationMessage.textContent = error.message;
-    }
+  function withinRange(value, min, max) {
+    if (min !== null && value < min) return false;
+    if (max !== null && value > max) return false;
+    return true;
   }
 
   function filterVideos(videos) {
+    const minViews = parseNumberInput('minViews');
+    const maxViews = parseNumberInput('maxViews');
+    const minLikes = parseNumberInput('minLikes');
+    const maxLikes = parseNumberInput('maxLikes');
+    const minComments = parseNumberInput('minComments');
+    const maxComments = parseNumberInput('maxComments');
+    const startDate = parseDateInput('startDate');
+    const endDate = parseDateInput('endDate');
+
     return videos.filter((video) => {
       const views = Number(video.views || 0);
       const likes = Number(video.likes || 0);
       const comments = Number(video.comments || 0);
+      if (!withinRange(views, minViews, maxViews)) return false;
+      if (!withinRange(likes, minLikes, maxLikes)) return false;
+      if (!withinRange(comments, minComments, maxComments)) return false;
 
-      if (currentFilters.minViews !== null && views < currentFilters.minViews) return false;
-      if (currentFilters.maxViews !== null && views > currentFilters.maxViews) return false;
-      if (currentFilters.minLikes !== null && likes < currentFilters.minLikes) return false;
-      if (currentFilters.maxLikes !== null && likes > currentFilters.maxLikes) return false;
-      if (currentFilters.minComments !== null && comments < currentFilters.minComments) return false;
-      if (currentFilters.maxComments !== null && comments > currentFilters.maxComments) return false;
-
-      if (currentFilters.startDate || currentFilters.endDate) {
-        const rawDate = video.created_at || video.createdAt || video.createdat;
-        const videoDate = rawDate ? new Date(rawDate) : null;
-
-        if (videoDate && currentFilters.startDate && videoDate < new Date(currentFilters.startDate)) return false;
-        if (videoDate && currentFilters.endDate) {
-          const end = new Date(currentFilters.endDate);
-          end.setHours(23, 59, 59, 999);
-          if (videoDate > end) return false;
+      if (startDate || endDate) {
+        const createdAt = getCreatedAt(video);
+        if (!createdAt) return false;
+        const videoDate = new Date(createdAt);
+        if (startDate && videoDate < startDate) return false;
+        if (endDate) {
+          const endOfDay = new Date(endDate);
+          endOfDay.setHours(23, 59, 59, 999);
+          if (videoDate > endOfDay) return false;
         }
       }
-
       return true;
     });
   }
 
-  function sortVideos(videos) {
-    const sorted = [...videos];
-    const sortBy = currentFilters.sortBy;
-    const order = currentFilters.sortOrder;
-
-    sorted.sort((a, b) => {
-      let aVal = 0;
-      let bVal = 0;
+  function sortVideos(videos, sortBy, ascending) {
+    return [...videos].sort((a, b) => {
+      let aValue = 0;
+      let bValue = 0;
 
       if (sortBy === 'date') {
-        aVal = new Date(a.created_at || a.createdAt || a.createdat || 0).getTime();
-        bVal = new Date(b.created_at || b.createdAt || b.createdat || 0).getTime();
+        aValue = new Date(getCreatedAt(a) || 0).getTime();
+        bValue = new Date(getCreatedAt(b) || 0).getTime();
       } else {
-        aVal = Number(a[sortBy] || 0);
-        bVal = Number(b[sortBy] || 0);
+        aValue = Number(a?.[sortBy] || 0);
+        bValue = Number(b?.[sortBy] || 0);
       }
 
-      return order === 'asc' ? aVal - bVal : bVal - aVal;
+      return ascending ? aValue - bValue : bValue - aValue;
     });
-
-    return sorted;
   }
 
-  function removeFilter(key) {
-    currentFilters[key] = null;
-
-    const inputMap = {
-      minViews: 'minViews',
-      maxViews: 'maxViews',
-      minLikes: 'minLikes',
-      maxLikes: 'maxLikes',
-      minComments: 'minComments',
-      maxComments: 'maxComments',
-      startDate: 'startDate',
-      endDate: 'endDate'
-    };
-
-    const inputId = inputMap[key];
-    if (inputId) {
-      const input = document.getElementById(inputId);
-      if (input) input.value = '';
-    }
-
-    setError('');
-    applyFiltersAndRender();
-  }
-
-  function updateActiveFiltersDisplay() {
-    if (!activeFiltersDiv) return;
-
-    const filters = [];
-
-    if (currentFilters.minViews !== null) filters.push({ key: 'minViews', label: `Min views: ${currentFilters.minViews}` });
-    if (currentFilters.maxViews !== null) filters.push({ key: 'maxViews', label: `Max views: ${currentFilters.maxViews}` });
-    if (currentFilters.minLikes !== null) filters.push({ key: 'minLikes', label: `Min likes: ${currentFilters.minLikes}` });
-    if (currentFilters.maxLikes !== null) filters.push({ key: 'maxLikes', label: `Max likes: ${currentFilters.maxLikes}` });
-    if (currentFilters.minComments !== null) filters.push({ key: 'minComments', label: `Min comments: ${currentFilters.minComments}` });
-    if (currentFilters.maxComments !== null) filters.push({ key: 'maxComments', label: `Max comments: ${currentFilters.maxComments}` });
-    if (currentFilters.startDate) filters.push({ key: 'startDate', label: `From: ${currentFilters.startDate}` });
-    if (currentFilters.endDate) filters.push({ key: 'endDate', label: `To: ${currentFilters.endDate}` });
-
-    if (!filters.length) {
-      activeFiltersDiv.innerHTML = '<span class="muted">No active filters</span>';
+  function renderRecommendations() {
+    if (!recommendations.length) {
+      recommendationGrid.innerHTML = '';
+      recommendationMessage.textContent = 'No recommendations yet.';
+      if (resultCount) resultCount.textContent = '0 videos found';
       return;
     }
 
-    activeFiltersDiv.innerHTML = filters.map((filter) => `
-      <span class="filter-tag">
-        ${filter.label}
-        <button type="button" class="filter-remove" data-remove-filter="${filter.key}" aria-label="Remove ${filter.label}">×</button>
-      </span>
-    `).join('');
-
-    activeFiltersDiv.querySelectorAll('[data-remove-filter]').forEach((btn) => {
-      btn.addEventListener('click', () => removeFilter(btn.dataset.removeFilter));
-    });
-  }
-
-  function applyFiltersAndRender() {
-    const filtered = filterVideos(allVideos);
-    const sorted = sortVideos(filtered);
-
-    if (recommendationGrid) {
-      recommendationGrid.innerHTML = sorted.map(cardTemplate).join('');
-    }
-
-    if (sorted.length === 0) {
-      if (recommendationMessage) recommendationMessage.textContent = 'No videos match your filters. Try adjusting the criteria.';
-      if (resultCount) resultCount.textContent = '0 videos found';
-    } else {
-      if (recommendationMessage) recommendationMessage.textContent = '';
-      if (resultCount) resultCount.textContent = `${sorted.length} video${sorted.length !== 1 ? 's' : ''} found`;
-    }
-
-    updateActiveFiltersDisplay();
-  }
-
-  function validateRange(minKey, maxKey, label) {
-    const min = currentFilters[minKey];
-    const max = currentFilters[maxKey];
-
-    if (min !== null && min < 0) {
-      setError(`${label} cannot be negative.`);
-      return false;
-    }
-
-    if (max !== null && max < 0) {
-      setError(`${label} cannot be negative.`);
-      return false;
-    }
-
-    if (min !== null && max !== null && min > max) {
-      setError(`${label} min value cannot be greater than max value.`);
-      return false;
-    }
-
-    setError('');
-    return true;
-  }
-
-  function setupNumericFilters() {
-    const mappings = [
-      { id: 'minViews', field: 'minViews', minKey: 'minViews', maxKey: 'maxViews', label: 'Views' },
-      { id: 'maxViews', field: 'maxViews', minKey: 'minViews', maxKey: 'maxViews', label: 'Views' },
-      { id: 'minLikes', field: 'minLikes', minKey: 'minLikes', maxKey: 'maxLikes', label: 'Likes' },
-      { id: 'maxLikes', field: 'maxLikes', minKey: 'minLikes', maxKey: 'maxLikes', label: 'Likes' },
-      { id: 'minComments', field: 'minComments', minKey: 'minComments', maxKey: 'maxComments', label: 'Comments' },
-      { id: 'maxComments', field: 'maxComments', minKey: 'minComments', maxKey: 'maxComments', label: 'Comments' }
-    ];
-
-    mappings.forEach(({ id, field, minKey, maxKey, label }) => {
-      const input = document.getElementById(id);
-      if (!input) return;
-
-      input.addEventListener('input', () => {
-        const raw = input.value.trim();
-        const value = raw === '' ? null : parseInt(raw, 10);
-
-        currentFilters[field] = value;
-
-        if (!validateRange(minKey, maxKey, label)) return;
-        applyFiltersAndRender();
-      });
-    });
-  }
-
-  function resetFilters() {
-    currentFilters = {
-      sortBy: 'views',
-      sortOrder: 'desc',
-      minViews: null,
-      maxViews: null,
-      minLikes: null,
-      maxLikes: null,
-      minComments: null,
-      maxComments: null,
-      startDate: null,
-      endDate: null
-    };
-
-    [
-      'minViews', 'maxViews',
-      'minLikes', 'maxLikes',
-      'minComments', 'maxComments',
-      'startDate', 'endDate',
-      'modalStartDate', 'modalEndDate'
-    ].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-
-    if (sortField) sortField.value = 'views';
-    if (sortAscending) sortAscending.checked = false;
-
-    setError('');
-    applyFiltersAndRender();
-  }
-
-  function setupDatePresets() {
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-
-    document.querySelectorAll('.date-preset-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const preset = btn.dataset.preset;
-        let startDate = null;
-        let endDate = null;
-
-        switch (preset) {
-          case 'today':
-            startDate = todayStr;
-            endDate = todayStr;
-            break;
-          case 'week': {
-            const weekAgo = new Date(today);
-            weekAgo.setDate(today.getDate() - 7);
-            startDate = weekAgo.toISOString().split('T')[0];
-            endDate = todayStr;
-            break;
-          }
-          case 'month': {
-            const monthAgo = new Date(today);
-            monthAgo.setMonth(today.getMonth() - 1);
-            startDate = monthAgo.toISOString().split('T')[0];
-            endDate = todayStr;
-            break;
-          }
-          case 'year': {
-            const yearAgo = new Date(today);
-            yearAgo.setFullYear(today.getFullYear() - 1);
-            startDate = yearAgo.toISOString().split('T')[0];
-            endDate = todayStr;
-            break;
-          }
-          case 'custom':
-            openDateModal();
-            return;
-        }
-
-        currentFilters.startDate = startDate;
-        currentFilters.endDate = endDate;
-
-        const startDateInput = document.getElementById('startDate');
-        const endDateInput = document.getElementById('endDate');
-        if (startDateInput) startDateInput.value = startDate || '';
-        if (endDateInput) endDateInput.value = endDate || '';
-
-        applyFiltersAndRender();
-      });
-    });
-  }
-
-  const dateModal = document.getElementById('dateModal');
-
-  function openDateModal() {
-    if (dateModal) {
-      dateModal.classList.remove('hidden');
-      dateModal.style.display = 'flex';
+    const filtered = filterVideos(recommendations);
+    const sortBy = recommendationSort?.value || 'views';
+    const ascending = Boolean(sortAscending?.checked);
+    const sorted = sortVideos(filtered, sortBy, ascending);
+    recommendationGrid.innerHTML = sorted.map(cardTemplate).join('');
+    recommendationMessage.textContent = sorted.length ? '' : 'No videos match your filters.';
+    if (resultCount) {
+      resultCount.textContent = `${sorted.length} video${sorted.length === 1 ? '' : 's'} found`;
     }
   }
 
-  function closeDateModal() {
-    if (dateModal) {
-      dateModal.classList.add('hidden');
-      dateModal.style.display = 'none';
-    }
+  try {
+    recommendations = await api('/api/recommendations');
+    renderRecommendations();
+  } catch (error) {
+    recommendationMessage.textContent = error.message;
   }
 
-  const closeModalBtn = document.querySelector('.close-modal');
-  if (closeModalBtn) closeModalBtn.addEventListener('click', closeDateModal);
+  recommendationSort?.addEventListener('change', renderRecommendations);
+  sortAscending?.addEventListener('change', renderRecommendations);
 
-  const cancelDateBtn = document.getElementById('cancelDateBtn');
-  if (cancelDateBtn) cancelDateBtn.addEventListener('click', closeDateModal);
+  ['minViews', 'maxViews', 'minLikes', 'maxLikes', 'minComments', 'maxComments', 'startDate', 'endDate']
+    .forEach((id) => document.getElementById(id)?.addEventListener('input', renderRecommendations));
 
-  const confirmDateBtn = document.getElementById('confirmDateBtn');
-  if (confirmDateBtn) {
-    confirmDateBtn.addEventListener('click', () => {
-      const startDate = document.getElementById('modalStartDate')?.value || '';
-      const endDate = document.getElementById('modalEndDate')?.value || '';
-
-      currentFilters.startDate = startDate || null;
-      currentFilters.endDate = endDate || null;
-
+  document.querySelectorAll('.date-preset-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.preset;
       const startDateInput = document.getElementById('startDate');
       const endDateInput = document.getElementById('endDate');
-      if (startDateInput) startDateInput.value = startDate;
-      if (endDateInput) endDateInput.value = endDate;
+      const today = new Date();
+      const format = (d) => d.toISOString().split('T')[0];
 
-      applyFiltersAndRender();
-      closeDateModal();
+      document.querySelectorAll('.date-preset-btn').forEach((el) => el.classList.remove('active'));
+      btn.classList.add('active');
+
+      if (preset === 'custom') {
+        customDateRange?.classList.remove('hidden');
+        return;
+      }
+
+      customDateRange?.classList.add('hidden');
+
+      let start = new Date(today);
+      let end = new Date(today);
+      if (preset === 'week') start.setDate(today.getDate() - 7);
+      if (preset === 'month') start.setMonth(today.getMonth() - 1);
+      if (preset === 'year') start.setFullYear(today.getFullYear() - 1);
+
+      if (startDateInput) startDateInput.value = format(start);
+      if (endDateInput) endDateInput.value = format(end);
+      renderRecommendations();
     });
-  }
-
-  window.addEventListener('click', (e) => {
-    if (e.target === dateModal) closeDateModal();
   });
 
-  const applyDateBtn = document.getElementById('applyDateBtn');
-  if (applyDateBtn) {
-    applyDateBtn.addEventListener('click', () => {
-      const startDate = document.getElementById('startDate')?.value || '';
-      const endDate = document.getElementById('endDate')?.value || '';
+  applyDateBtn?.addEventListener('click', renderRecommendations);
 
-      currentFilters.startDate = startDate || null;
-      currentFilters.endDate = endDate || null;
-      applyFiltersAndRender();
-    });
-  }
+  toggleFiltersBtn?.addEventListener('click', () => {
+    const hidden = filterContent?.classList.toggle('hidden');
+    toggleFiltersBtn.textContent = hidden ? '▼ Show Filters' : '▲ Hide Filters';
+  });
 
-  if (sortField) {
-    sortField.addEventListener('change', () => {
-      currentFilters.sortBy = sortField.value;
-      applyFiltersAndRender();
-    });
-  }
+  resetFiltersBtn?.addEventListener('click', () => {
+    ['minViews', 'maxViews', 'minLikes', 'maxLikes', 'minComments', 'maxComments', 'startDate', 'endDate']
+      .forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+    customDateRange?.classList.add('hidden');
+    document.querySelectorAll('.date-preset-btn').forEach((el) => el.classList.remove('active'));
+    if (recommendationSort) recommendationSort.value = 'views';
+    if (sortAscending) sortAscending.checked = false;
+    renderRecommendations();
+  });
 
-  if (sortAscending) {
-    sortAscending.addEventListener('change', () => {
-      currentFilters.sortOrder = sortAscending.checked ? 'asc' : 'desc';
-      applyFiltersAndRender();
-    });
-  }
-
-  if (toggleFiltersBtn && filterContent) {
-    toggleFiltersBtn.addEventListener('click', () => {
-      filterContent.classList.toggle('hidden');
-      const isHidden = filterContent.classList.contains('hidden');
-      toggleFiltersBtn.textContent = isHidden ? '▼ Show Filters' : '▼ Hide Filters';
-    });
-  }
-
-  if (resetFiltersBtn) {
-    resetFiltersBtn.addEventListener('click', resetFilters);
-  }
-
-  if (uploadForm) {
-    uploadForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      try {
-        const formData = new FormData(uploadForm);
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-          credentials: 'same-origin'
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || 'Upload failed');
-        if (uploadMessage) uploadMessage.textContent = 'Upload successful. Reloading recommendations...';
-        setTimeout(() => window.location.reload(), 700);
-      } catch (error) {
-        if (uploadMessage) uploadMessage.textContent = error.message;
-      }
-    });
-  }
-
-  setupNumericFilters();
-  setupDatePresets();
-  await loadVideos();
+  uploadForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const formData = new FormData(uploadForm);
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Upload failed');
+      uploadMessage.textContent = 'Upload successful. Reloading recommendations...';
+      setTimeout(() => window.location.reload(), 700);
+    } catch (error) {
+      uploadMessage.textContent = error.message;
+    }
+  });
 }
 
 async function initMyProfilePage() {
   const header = document.getElementById('myProfileHeader');
+  const uploadForm = document.getElementById('uploadForm');
+  const uploadMessage = document.getElementById('uploadMessage');
+  const followingGrid = document.getElementById('followingGrid');
+  const followingMessage = document.getElementById('followingMessage');
   const likedGrid = document.getElementById('myLikedGrid');
   const likedMessage = document.getElementById('myLikedMessage');
   const commentedGrid = document.getElementById('myCommentedGrid');
   const commentedMessage = document.getElementById('myCommentedMessage');
-  const followingGrid = document.getElementById('followingGrid');
-  const followingMessage = document.getElementById('followingMessage');
-  const uploadForm = document.getElementById('uploadForm');
-  const uploadMessage = document.getElementById('uploadMessage');
+  const uploadedGrid = document.getElementById('myUploadedGrid');
+  const uploadedMessage = document.getElementById('myUploadedMessage');
+  const recentGrid = document.getElementById('myRecentGrid');
+  const recentMessage = document.getElementById('myRecentMessage');
 
   const session = await loadSession();
   if (!session.loggedIn) {
@@ -645,72 +390,111 @@ async function initMyProfilePage() {
 
   async function loadProfileData() {
     try {
-      const data = await api('/api/me/profile');
+    const data = await api('/api/me/profile');
 
-      const user = data.user;
+    const user = data.user;
+    if (header) {
       header.innerHTML = `
-        <div class="profile-top">
-          <img class="avatar-lg" src="${getAvatarUrl(user)}" alt="${user.username}">
-          <div>
-            <p class="eyebrow">My profile</p>
-            <h1>${user.username}</h1>
-            <p class="muted" id="profileBio">${user.bio || 'No bio yet.'}</p>
-            <div class="stat-row">
-              <span>${user.followers || 0} followers</span>
-              <span>${user.following || 0} following</span>
-            </div>
+      <div class="profile-top">
+        <img class="avatar-lg" src="${getAvatarUrl(user)}" alt="${user.username}">
+        <div>
+          <p class="eyebrow">My profile</p>
+          <h1>${user.username}</h1>
+          <p class="muted">${user.bio || 'No bio yet.'}</p>
+          <div class="stat-row">
+            <span>${user.followers || 0} followers</span>
+            <span>${user.following || 0} following</span>
           </div>
         </div>
-      `;
+      </div>
+    `;
+    }
 
-      // Display following list
-      const following = data.following || [];
-      if (followingGrid) {
-        if (following.length === 0) {
-          followingGrid.innerHTML = '';
-          followingMessage.textContent = 'You are not following anyone yet.';
-        } else {
-          followingGrid.innerHTML = following.map(userCardTemplate).join('');
-          followingMessage.textContent = '';
-        }
-      }
+    const following = data.following || [];
+    if (followingGrid) {
+      followingGrid.innerHTML = following.map(userCardTemplate).join('');
+    }
+    if (followingMessage) {
+      followingMessage.textContent = following.length ? '' : 'You are not following anyone yet.';
+    }
 
-      const liked = data.liked || [];
-      likedGrid.innerHTML = liked.map(cardTemplate).join('');
-      likedMessage.textContent = liked.length ? '' : 'You have not liked any videos yet.';
+    const liked = data.liked || [];
+    if (likedGrid) likedGrid.innerHTML = liked.map(cardTemplate).join('');
+    if (likedMessage) likedMessage.textContent = liked.length ? '' : 'You have not liked any videos yet.';
 
-      const commented = data.commented || [];
-      commentedGrid.innerHTML = commented.map(cardTemplate).join('');
-      commentedMessage.textContent = commented.length ? '' : 'You have not commented on any videos yet.';
+    const commented = data.commented || [];
+    if (commentedGrid) commentedGrid.innerHTML = commented.map(cardTemplate).join('');
+    if (commentedMessage) commentedMessage.textContent = commented.length ? '' : 'You have not commented on any videos yet.';
+
+    const uploaded = data.uploaded || [];
+    if (uploadedGrid) uploadedGrid.innerHTML = uploaded.map(uploadedVideoTemplate).join('');
+    if (uploadedMessage) uploadedMessage.textContent = uploaded.length ? '' : 'You have not uploaded any videos yet.';
+
+    const recent = data.recent || [];
+    if (recentGrid) recentGrid.innerHTML = recent.map(cardTemplate).join('');
+    if (recentMessage) recentMessage.textContent = recent.length ? '' : 'No recent views recorded yet.';
     } catch (error) {
-      likedMessage.textContent = error.message;
-      commentedMessage.textContent = error.message;
-      if (followingMessage) followingMessage.textContent = error.message;
+    if (followingMessage) followingMessage.textContent = error.message;
+    if (likedMessage) likedMessage.textContent = error.message;
+    if (commentedMessage) commentedMessage.textContent = error.message;
+    if (uploadedMessage) uploadedMessage.textContent = error.message;
+    if (recentMessage) recentMessage.textContent = error.message;
     }
   }
 
   await loadProfileData();
 
-  // Upload form handling
-  if (uploadForm) {
-    uploadForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+  uploadedGrid?.addEventListener('click', async (e) => {
+    const toggleBtn = e.target.closest('[data-toggle-private]');
+    const deleteBtn = e.target.closest('[data-delete-video]');
+
+    if (toggleBtn) {
+      const videoId = toggleBtn.getAttribute('data-toggle-private');
+      const next = Number(toggleBtn.getAttribute('data-private-next')) === 1;
       try {
-        const formData = new FormData(uploadForm);
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-          credentials: 'same-origin'
+        await api(`/api/videos/${videoId}/privacy`, {
+          method: 'PUT',
+          body: JSON.stringify({ isPrivate: next })
         });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || 'Upload failed');
-        if (uploadMessage) uploadMessage.textContent = 'Upload successful!';
-        setTimeout(() => window.location.reload(), 1500);
+        if (uploadedMessage) uploadedMessage.textContent = next ? 'Video set to private.' : 'Video is now public.';
+        await loadProfileData();
       } catch (error) {
-        if (uploadMessage) uploadMessage.textContent = error.message;
+        if (uploadedMessage) uploadedMessage.textContent = error.message;
       }
-    });
-  }
+      return;
+    }
+
+    if (deleteBtn) {
+      const videoId = deleteBtn.getAttribute('data-delete-video');
+      const confirmed = window.confirm('Delete this video permanently?');
+      if (!confirmed) return;
+      try {
+        await api(`/api/videos/${videoId}`, { method: 'DELETE' });
+        if (uploadedMessage) uploadedMessage.textContent = 'Video deleted.';
+        await loadProfileData();
+      } catch (error) {
+        if (uploadedMessage) uploadedMessage.textContent = error.message;
+      }
+    }
+  });
+
+  uploadForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const formData = new FormData(uploadForm);
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Upload failed');
+      if (uploadMessage) uploadMessage.textContent = 'Upload successful!';
+      await loadProfileData();
+    } catch (error) {
+      if (uploadMessage) uploadMessage.textContent = error.message;
+    }
+  });
 }
 
 async function initProfilePage() {
@@ -737,13 +521,13 @@ async function initProfilePage() {
           <div class="stat-row">
             <span>${user.followers || 0} followers</span>
             <span>${user.following || 0} following</span>
+            <span>Favorite tag: ${user.favorite_tag || 'Not set'}</span>
           </div>
         </div>
-        ${
-          isOwnProfile
-            ? ''
-            : `<button class="btn btn-primary" id="followBtn">${user.is_following || user.isfollowing ? 'Following' : 'Follow'}</button>`
-        }
+        ${isOwnProfile
+        ? ''
+        : `<button class="btn btn-primary" id="followBtn">${user.is_following || user.isfollowing ? 'Following' : 'Follow'}</button>`
+      }
       </div>
     `;
 
@@ -782,52 +566,26 @@ async function initVideoPage() {
   const session = await loadSession();
   wireSidebarLinks(session);
 
-  async function loadRecommended() {
-    if (!recommendedGrid) return;
-    
-    try {
-      const recommended = await api(`/api/videos/${videoId}/recommended`);
-      
-      if (recommended.length === 0) {
-        recommendedGrid.innerHTML = '';
-        recommendedMessage.textContent = 'No recommendations available.';
-      } else {
-        recommendedGrid.innerHTML = recommended.map(recommendedCardTemplate).join('');
-        recommendedMessage.textContent = '';
-      }
-    } catch (error) {
-      recommendedMessage.textContent = error.message;
-    }
-  }
-
   async function loadVideo() {
     const data = await api(`/api/videos/${videoId}`);
     const video = data.video;
 
     playerWrap.innerHTML = `
-      <video controls poster="${getThumbUrl(video)}" autoplay>
+      <video controls poster="${getThumbUrl(video)}">
         <source src="${getVideoUrl(video)}" type="video/mp4">
         Your browser does not support the video tag.
       </video>
     `;
 
-    const uploadDate = getCreatedAt(video);
-    const formattedDate = uploadDate ? new Date(uploadDate).toLocaleString() : 'Unknown date';
-
     meta.innerHTML = `
-      <p class="eyebrow">Video</p>
+      <p class="eyebrow">Video page</p>
       <h1>${getTitle(video)}</h1>
       <p class="muted">${video.caption || ''}</p>
       <div class="video-actions">
         <button class="btn btn-primary" id="likeBtn">${video.liked ? 'Unlike' : 'Like'} · ${video.likes || 0}</button>
         <a class="btn btn-secondary" href="/profile.html?id=${getUserId(video)}">Open ${video.username || 'creator'}'s profile</a>
       </div>
-      <p class="muted">
-        By ${video.username || 'Unknown creator'} · 
-        ${video.views || 0} views · 
-        ${video.comments || 0} comments · 
-        📅 Uploaded ${formattedDate}
-      </p>
+      <p class="muted">By ${video.username || 'Unknown creator'} · ${video.views || 0} views · ${video.comments || 0} comments</p>
       <p class="muted">${data.creatorBio || video.bio || ''}</p>
     `;
 
@@ -836,7 +594,7 @@ async function initVideoPage() {
       <div class="comment-item">
         <strong>${comment.username || 'User'}</strong>
         <p>${comment.text || ''}</p>
-        <small class="muted">${getRelativeTime(getCreatedAt(comment))}</small>
+        <small class="muted">${getCreatedAt(comment) ? new Date(getCreatedAt(comment)).toLocaleString() : ''}</small>
       </div>
     `).join('');
 
@@ -844,11 +602,23 @@ async function initVideoPage() {
       try {
         await api(`/api/videos/${videoId}/like`, { method: 'POST' });
         await loadVideo();
-        await loadRecommended();
       } catch (error) {
         commentMessage.textContent = error.message;
       }
     });
+  }
+
+  async function loadRecommended() {
+    if (!recommendedGrid) return;
+    try {
+      const recommended = await api(`/api/videos/${videoId}/recommended`);
+      recommendedGrid.innerHTML = recommended.map(cardTemplate).join('');
+      if (recommendedMessage) {
+        recommendedMessage.textContent = recommended.length ? '' : 'No recommendations available yet.';
+      }
+    } catch (error) {
+      if (recommendedMessage) recommendedMessage.textContent = error.message;
+    }
   }
 
   try {
@@ -885,169 +655,123 @@ async function initSettingsPage() {
 
   wireSidebarLinks(session);
 
-  const userData = await api('/api/me');
-  const user = userData.user;
-
   const currentUsername = document.getElementById('currentUsername');
   const currentBio = document.getElementById('currentBio');
   const bioInput = document.getElementById('newBio');
   const bioCount = document.getElementById('bioCount');
+  const loginHistoryList = document.getElementById('loginHistoryList');
 
-  if (currentUsername) currentUsername.value = user.username;
-  if (currentBio) currentBio.value = user.bio || '';
-  if (bioInput) {
-    bioInput.value = user.bio || '';
-    if (bioCount) bioCount.textContent = (user.bio || '').length;
-    
-    bioInput.addEventListener('input', () => {
-      bioCount.textContent = bioInput.value.length;
-    });
+  try {
+    const userData = await api('/api/me');
+    const user = userData.user || {};
+    if (currentUsername) currentUsername.value = user.username || '';
+    if (currentBio) currentBio.value = user.bio || '';
+    if (bioInput) bioInput.value = user.bio || '';
+    if (bioCount) bioCount.textContent = String((bioInput?.value || '').length);
+  } catch (error) {
+    if (loginHistoryList) loginHistoryList.innerHTML = `<p class="status-text">${error.message}</p>`;
   }
 
-  // Change Username
-  const usernameForm = document.getElementById('changeUsernameForm');
-  const usernameMessage = document.getElementById('usernameMessage');
-  
-  usernameForm?.addEventListener('submit', async (e) => {
+  bioInput?.addEventListener('input', () => {
+    if (bioCount) bioCount.textContent = String(bioInput.value.length);
+  });
+
+  document.getElementById('changeUsernameForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const newUsername = document.getElementById('newUsername').value;
-    const password = document.getElementById('usernamePassword').value;
-
-    if (!newUsername || !password) {
-      usernameMessage.textContent = 'All fields required';
-      usernameMessage.style.color = 'red';
-      return;
-    }
-
-    if (newUsername.length < 3) {
-      usernameMessage.textContent = 'Username must be at least 3 characters';
-      usernameMessage.style.color = 'red';
-      return;
-    }
-
+    const usernameMessage = document.getElementById('usernameMessage');
+    const newUsername = document.getElementById('newUsername')?.value?.trim();
+    const password = document.getElementById('usernamePassword')?.value || '';
     try {
       const result = await api('/api/me/username', {
         method: 'PUT',
         body: JSON.stringify({ newUsername, password })
       });
-      
-      if (result.success) {
-        usernameMessage.textContent = 'Username updated successfully!';
-        usernameMessage.style.color = 'green';
-        currentUsername.value = newUsername;
-        document.getElementById('newUsername').value = '';
-        document.getElementById('usernamePassword').value = '';
-        setTimeout(() => usernameMessage.textContent = '', 3000);
-      }
+      if (currentUsername && result.username) currentUsername.value = result.username;
+      if (usernameMessage) usernameMessage.textContent = 'Username updated.';
+      document.getElementById('newUsername').value = '';
+      document.getElementById('usernamePassword').value = '';
     } catch (error) {
-      usernameMessage.textContent = error.message;
-      usernameMessage.style.color = 'red';
+      if (usernameMessage) usernameMessage.textContent = error.message;
     }
   });
 
-  // Change Password
-  const passwordForm = document.getElementById('changePasswordForm');
-  const passwordMessage = document.getElementById('passwordMessage');
-
-  passwordForm?.addEventListener('submit', async (e) => {
+  document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const currentPassword = document.getElementById('currentPassword').value;
-    const newPassword = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      passwordMessage.textContent = 'All fields required';
-      passwordMessage.style.color = 'red';
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      passwordMessage.textContent = 'Password must be at least 6 characters';
-      passwordMessage.style.color = 'red';
-      return;
-    }
-
+    const passwordMessage = document.getElementById('passwordMessage');
+    const currentPassword = document.getElementById('currentPassword')?.value || '';
+    const newPassword = document.getElementById('newPassword')?.value || '';
+    const confirmPassword = document.getElementById('confirmPassword')?.value || '';
     if (newPassword !== confirmPassword) {
-      passwordMessage.textContent = 'New passwords do not match';
-      passwordMessage.style.color = 'red';
+      if (passwordMessage) passwordMessage.textContent = 'New passwords do not match.';
       return;
     }
-
     try {
-      const result = await api('/api/me/password', {
+      await api('/api/me/password', {
         method: 'PUT',
         body: JSON.stringify({ currentPassword, newPassword })
       });
-      
-      if (result.success) {
-        passwordMessage.textContent = 'Password updated successfully! Please login again.';
-        passwordMessage.style.color = 'green';
-        document.getElementById('currentPassword').value = '';
-        document.getElementById('newPassword').value = '';
-        document.getElementById('confirmPassword').value = '';
-        
-        setTimeout(() => {
-          window.location.href = '/login.html';
-        }, 2000);
-      }
+      if (passwordMessage) passwordMessage.textContent = 'Password updated.';
+      document.getElementById('currentPassword').value = '';
+      document.getElementById('newPassword').value = '';
+      document.getElementById('confirmPassword').value = '';
     } catch (error) {
-      passwordMessage.textContent = error.message;
-      passwordMessage.style.color = 'red';
+      if (passwordMessage) passwordMessage.textContent = error.message;
     }
   });
 
-  // Change Bio
-  const bioForm = document.getElementById('changeBioForm');
-  const bioMessage = document.getElementById('bioMessage');
-
-  bioForm?.addEventListener('submit', async (e) => {
+  document.getElementById('changeBioForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const newBio = document.getElementById('newBio').value;
-
+    const bioMessage = document.getElementById('bioMessage');
+    const bio = bioInput?.value || '';
     try {
       const result = await api('/api/me/bio', {
         method: 'PUT',
-        body: JSON.stringify({ bio: newBio })
+        body: JSON.stringify({ bio })
       });
-      
-      if (result.success) {
-        bioMessage.textContent = 'Bio updated successfully!';
-        bioMessage.style.color = 'green';
-        if (currentBio) currentBio.value = newBio || 'No bio yet.';
-        setTimeout(() => bioMessage.textContent = '', 3000);
-      }
+      if (currentBio) currentBio.value = result.bio || bio;
+      if (bioMessage) bioMessage.textContent = 'Bio updated.';
     } catch (error) {
-      bioMessage.textContent = error.message;
-      bioMessage.style.color = 'red';
+      if (bioMessage) bioMessage.textContent = error.message;
     }
   });
 
-  // Load Login History
-  const historyList = document.getElementById('loginHistoryList');
-  
   try {
     const historyData = await api('/api/me/login-history');
     const history = historyData.history || [];
-    
-    if (history.length === 0) {
-      historyList.innerHTML = '<p class="status-text">No login history available.</p>';
-    } else {
-      historyList.innerHTML = history.map(entry => `
-        <div class="history-item">
-          <div class="history-time">
-            <strong>${new Date(entry.login_time).toLocaleString()}</strong>
+    if (loginHistoryList) {
+      if (!history.length) {
+        loginHistoryList.innerHTML = '<p class="status-text">No login history available.</p>';
+      } else {
+        loginHistoryList.innerHTML = history.map((entry) => `
+          <div class="history-item">
+            <div class="history-time"><strong>${new Date(entry.login_time).toLocaleString()}</strong></div>
+            <div class="history-details">
+              <span>IP: ${entry.ip_address || 'Unknown'}</span>
+              <span class="muted">${entry.user_agent || 'Unknown device'}</span>
+            </div>
           </div>
-          <div class="history-details">
-            <span>IP: ${entry.ip_address || 'Unknown'}</span>
-            <span class="muted">${entry.user_agent ? entry.user_agent.substring(0, 50) + '...' : 'Unknown device'}</span>
-          </div>
-        </div>
-      `).join('');
+        `).join('');
+      }
     }
   } catch (error) {
-    historyList.innerHTML = `<p class="status-text">${error.message}</p>`;
+    if (loginHistoryList) loginHistoryList.innerHTML = `<p class="status-text">${error.message}</p>`;
   }
 }
+
+// Added a utility function to apply animations dynamically
+function applyAnimation(element, animationName) {
+  element.classList.add(animationName);
+  element.addEventListener('animationend', () => {
+    element.classList.remove(animationName);
+  });
+}
+
+// Apply click animation to all interactive button styles.
+document.querySelectorAll('.btn, .sort-btn, .order-btn, .date-preset-btn').forEach((button) => {
+  button.addEventListener('click', () => {
+    applyAnimation(button, 'btn-click-animation');
+  });
+});
 
 // Page router
 if (page === 'login') initLoginPage();
