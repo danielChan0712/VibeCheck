@@ -20,12 +20,50 @@
       <nav class="menu">
         <a class="menu-link" href="/home.html">Home</a>
         <a class="menu-link active" href="/my-profile.html" id="myProfileLink">My Profile</a>
+        <a class="menu-link" href="/settings.html">Settings</a>
         <a class="menu-link" href="#" id="logoutLink">Logout</a>
       </nav>
     </aside>
 
     <main class="content">
       <section class="profile-hero glass" id="myProfileHeader"></section>
+
+      <!-- Add this after Edit Bio section -->
+      <section class="panel glass">
+        <div class="section-head">
+          <div>
+            <h2>Upload New Video</h2>
+            <p class="muted">Share your content with the community.</p>
+          </div>
+        </div>
+
+        <form id="uploadForm" class="upload-form" enctype="multipart/form-data">
+          <input type="text" name="title" placeholder="Video title" required>
+          <input type="text" name="caption" placeholder="Caption">
+          <select name="category">
+            <option value="art">Art</option>
+            <option value="music">Music</option>
+            <option value="dance">Dance</option>
+            <option value="general">General</option>
+          </select>
+          <input type="file" name="videoFile" accept="video/*" required>
+          <button class="btn btn-primary" type="submit">Upload</button>
+        </form>
+
+        <p id="uploadMessage" class="status-text"></p>
+      </section>
+
+      <!-- NEW: People You Follow Section -->
+      <section class="panel glass">
+        <div class="section-head">
+          <div>
+            <h2>People You Follow</h2>
+            <p class="muted">Creators you are following.</p>
+          </div>
+        </div>
+        <div id="followingGrid" class="users-grid"></div>
+        <p id="followingMessage" class="status-text"></p>
+      </section>
 
       <section class="panel glass">
         <div class="section-head">
@@ -47,17 +85,6 @@
         </div>
         <div id="myCommentedGrid" class="video-grid"></div>
         <p id="myCommentedMessage" class="status-text"></p>
-      </section>
-
-      <section class="panel glass">
-        <div class="section-head">
-          <div>
-            <h2>Recently viewed</h2>
-            <p class="muted">Your last 5 watched videos.</p>
-          </div>
-        </div>
-        <div id="myRecentGrid" class="video-grid"></div>
-        <p id="myRecentMessage" class="status-text"></p>
       </section>
     </main>
   </div>

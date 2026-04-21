@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings | VibeCheck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body data-page="settings">
+  <div class="app-shell">
+    <aside class="sidebar glass">
+      <a class="brand-link" href="/home.html">
+        <span class="logo-mini"></span>
+        <strong>VibeCheck</strong>
+      </a>
+
+      <nav class="menu">
+        <a class="menu-link" href="/home.html">Home</a>
+        <a class="menu-link" href="/my-profile.html" id="myProfileLink">My Profile</a>
+        <a class="menu-link active" href="/settings.html">Settings</a>
+        <a class="menu-link" href="#" id="logoutLink">Logout</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <section class="hero-strip glass">
+        <div>
+          <p class="eyebrow">Account Settings</p>
+          <h1>Manage your account</h1>
+          <p class="muted">Update your personal information and security settings.</p>
+        </div>
+      </section>
+
+      <!-- Change Username Section -->
+      <section class="panel glass">
+        <div class="section-head">
+          <div>
+            <h2>Change Username</h2>
+            <p class="muted">Update your display name.</p>
+          </div>
+        </div>
+        <form id="changeUsernameForm" class="settings-form">
+          <div class="form-group">
+            <label>Current Username</label>
+            <input type="text" id="currentUsername" disabled>
+          </div>
+          <div class="form-group">
+            <label>New Username</label>
+            <input type="text" id="newUsername" placeholder="Enter new username" required>
+          </div>
+          <div class="form-group">
+            <label>Confirm Password</label>
+            <input type="password" id="usernamePassword" placeholder="Enter your password to confirm" required>
+          </div>
+          <button class="btn btn-primary" type="submit">Update Username</button>
+          <span id="usernameMessage" class="status-text"></span>
+        </form>
+      </section>
+
+      <!-- Change Password Section -->
+      <section class="panel glass">
+        <div class="section-head">
+          <div>
+            <h2>Change Password</h2>
+            <p class="muted">Update your password. Use at least 6 characters.</p>
+          </div>
+        </div>
+        <form id="changePasswordForm" class="settings-form">
+          <div class="form-group">
+            <label>Current Password</label>
+            <input type="password" id="currentPassword" placeholder="Enter current password" required>
+          </div>
+          <div class="form-group">
+            <label>New Password</label>
+            <input type="password" id="newPassword" placeholder="Enter new password (min 6 characters)" required>
+          </div>
+          <div class="form-group">
+            <label>Confirm New Password</label>
+            <input type="password" id="confirmPassword" placeholder="Confirm new password" required>
+          </div>
+          <button class="btn btn-primary" type="submit">Update Password</button>
+          <span id="passwordMessage" class="status-text"></span>
+        </form>
+      </section>
+
+      <!-- Change Bio Section -->
+      <section class="panel glass">
+        <div class="section-head">
+          <div>
+            <h2>Change Bio</h2>
+            <p class="muted">Update your profile description.</p>
+          </div>
+        </div>
+        <form id="changeBioForm" class="settings-form">
+          <div class="form-group">
+            <label>Current Bio</label>
+            <textarea id="currentBio" rows="2" disabled></textarea>
+          </div>
+          <div class="form-group">
+            <label>New Bio</label>
+            <textarea id="newBio" rows="3" maxlength="200" placeholder="Tell us about yourself..."></textarea>
+            <small class="muted"><span id="bioCount">0</span>/200 characters</small>
+          </div>
+          <button class="btn btn-primary" type="submit">Update Bio</button>
+          <span id="bioMessage" class="status-text"></span>
+        </form>
+      </section>
+
+      <!-- Login History Section -->
+      <section class="panel glass">
+        <div class="section-head">
+          <div>
+            <h2>Login History</h2>
+            <p class="muted">Your recent login activity.</p>
+          </div>
+        </div>
+        <div id="loginHistoryList" class="login-history">
+          <p class="status-text">Loading login history...</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/script.js" defer></script>
+</body>
+</html>

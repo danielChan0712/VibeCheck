@@ -20,6 +20,7 @@
       <nav class="menu">
         <a class="menu-link active" href="/home.html">Home</a>
         <a class="menu-link" href="/my-profile.html" id="myProfileLink">My Profile</a>
+        <a class="menu-link" href="/settings.html">Settings</a>
         <a class="menu-link" href="#" id="logoutLink">Logout</a>
       </nav>
     </aside>
@@ -28,54 +29,131 @@
       <section class="hero-strip glass">
         <div>
           <p class="eyebrow">For you</p>
-          <h1>Recommendations that follow your favorite tag.</h1>
+          <h1>Videos that have passed the VibeCheck.</h1>
           <p class="muted" id="welcomeText">Loading your profile...</p>
         </div>
       </section>
 
       <section class="panel glass">
-        <div class="section-head">
-          <h2>Upload a video</h2>
-          <p class="muted">Optional demo upload. If you are not logged in, login first.</p>
+        <div class="filter-header" id="filterHeader">
+          <div class="section-head">
+            <div>
+              <h2>Filter & Sort Videos</h2>
+              <p class="muted">Narrow down videos by metrics and date range.</p>
+            </div>
+            <button class="btn btn-secondary" id="toggleFiltersBtn" type="button">▼ Show Filters</button>
+          </div>
         </div>
 
-        <form id="uploadForm" class="upload-form" enctype="multipart/form-data">
-          <input type="text" name="title" placeholder="Video title" required>
-          <input type="text" name="caption" placeholder="Caption">
-          <select name="category">
-            <option value="art">Art</option>
-            <option value="music">Music</option>
-            <option value="dance">Dance</option>
-            <option value="general">General</option>
-          </select>
-          <input type="file" name="videoFile" accept="video/*" required>
-          <button class="btn btn-primary" type="submit">Upload</button>
-        </form>
+        <div id="filterContent" class="filter-content hidden">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label for="minViews">Views Range</label>
+              <div class="range-inputs">
+                <input type="number" id="minViews" placeholder="Min views" class="filter-input">
+                <span>-</span>
+                <input type="number" id="maxViews" placeholder="Max views" class="filter-input">
+              </div>
+            </div>
 
-        <p id="uploadMessage" class="status-text"></p>
+            <div class="filter-group">
+              <label for="minLikes">Likes Range</label>
+              <div class="range-inputs">
+                <input type="number" id="minLikes" placeholder="Min likes" class="filter-input">
+                <span>-</span>
+                <input type="number" id="maxLikes" placeholder="Max likes" class="filter-input">
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <label for="minComments">Comments Range</label>
+              <div class="range-inputs">
+                <input type="number" id="minComments" placeholder="Min comments" class="filter-input">
+                <span>-</span>
+                <input type="number" id="maxComments" placeholder="Max comments" class="filter-input">
+              </div>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label>Date Range</label>
+            <div class="date-filters">
+              <button class="date-preset-btn" data-preset="today" type="button">Today</button>
+              <button class="date-preset-btn" data-preset="week" type="button">This Week</button>
+              <button class="date-preset-btn" data-preset="month" type="button">This Month</button>
+              <button class="date-preset-btn" data-preset="year" type="button">This Year</button>
+              <button class="date-preset-btn" data-preset="custom" type="button">Custom Range</button>
+            </div>
+
+            <div id="customDateRange" class="custom-date-range hidden">
+              <input type="date" id="startDate">
+              <span>to</span>
+              <input type="date" id="endDate">
+              <button class="btn btn-sm" id="applyDateBtn" type="button">Apply</button>
+            </div>
+          </div>
+
+          <div id="activeFilters" class="active-filters"></div>
+          <p id="filterErrorMessage" class="status-text hidden"></p>
+
+          <div class="filter-actions">
+            <button class="btn btn-secondary" id="resetFiltersBtn" type="button">Reset all filters</button>
+          </div>
+        </div>
       </section>
 
       <section class="panel glass">
         <div class="section-head section-head-split">
           <div>
             <h2>Recommended for you</h2>
-            <p class="muted">Sort videos by the signal you care about most.</p>
+            <p class="muted" id="resultCount">Loading videos...</p>
           </div>
 
-          <label class="sort-control" for="recommendationSort">
-            <span class="muted">Sort by</span>
-            <select id="recommendationSort">
+          <div class="sort-control">
+            <label for="sortField" class="muted">Sort by:</label>
+            <select id="sortField">
               <option value="views">Views</option>
               <option value="likes">Likes</option>
               <option value="comments">Comments</option>
+              <option value="date">Upload Date</option>
             </select>
-          </label>
-        </div>
+
+            <label for="sortAscending" class="sort-checkbox">
+              <input type="checkbox" id="sortAscending">
+              <span>Ascending</span>
+            </label>
+          </div>
 
         <div id="recommendationGrid" class="video-grid"></div>
         <p id="recommendationMessage" class="status-text"></p>
       </section>
     </main>
+  </div>
+
+  <div id="dateModal" class="modal hidden">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h2>Select Date Range</h2>
+        <button class="close-modal" type="button" aria-label="Close date picker">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="date-input-group">
+          <label for="modalStartDate">Start Date</label>
+          <input type="date" id="modalStartDate">
+        </div>
+
+        <div class="date-input-group">
+          <label for="modalEndDate">End Date</label>
+          <input type="date" id="modalEndDate">
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="confirmDateBtn" type="button">Apply</button>
+          <button class="btn btn-secondary" id="cancelDateBtn" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="/script.js" defer></script>

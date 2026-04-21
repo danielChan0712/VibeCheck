@@ -20,6 +20,7 @@
       <nav class="menu">
         <a class="menu-link" href="/home.html">Home</a>
         <a class="menu-link" href="/my-profile.html" id="myProfileLink">My Profile</a>
+        <a class="menu-link" href="/settings.html">Settings</a>
         <a class="menu-link" href="#" id="logoutLink">Logout</a>
       </nav>
     </aside>
@@ -43,6 +44,18 @@
 
             <p id="commentMessage" class="status-text"></p>
             <div id="commentList" class="comment-list"></div>
+          </section>
+
+          <!-- Add after the comment section -->
+          <section class="panel glass">
+            <div class="section-head">
+              <div>
+                <h2>Recommended for you</h2>
+                <p class="muted">Videos you might also like</p>
+              </div>
+            </div>
+            <div id="recommendedGrid" class="video-grid"></div>
+            <p id="recommendedMessage" class="status-text"></p>
           </section>
         </div>
       </section>

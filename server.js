@@ -28,7 +28,7 @@ app.use(session({
 }));
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const storage = multer.diskStorage({
@@ -88,6 +88,7 @@ app.post('/api/signup', async (req, res) => {
   }
 });
 
+// FIXED: Login endpoint with history recording
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -99,6 +100,24 @@ app.post('/api/login', async (req, res) => {
   if (!ok) return res.status(400).json({ error: 'Invalid credentials' });
 
   req.session.userId = user.id;
+  
+  // Update last_login
+  await db.query('UPDATE users SET last_login = NOW() WHERE id = ?', [user.id]);
+  
+  // Record login history
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+  const userAgent = req.headers['user-agent'] || 'unknown';
+  
+  try {
+    await db.query(
+      'INSERT INTO login_history (user_id, ip_address, user_agent) VALUES (?, ?, ?)',
+      [user.id, ip, userAgent.substring(0, 255)]
+    );
+    console.log('Login recorded for user:', user.username);
+  } catch (err) {
+    console.log('Failed to record login history:', err.message);
+  }
+  
   res.json({ success: true });
 });
 
@@ -129,13 +148,13 @@ app.get('/api/recommendations', async (req, res) => {
 app.post('/api/upload', requireAuth, upload.single('videoFile'), async (req, res) => {
   try {
     const { title, caption } = req.body;
-    if (!title || !req.file) {
-      return res.status(400).json({ error: 'Title and video file required' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'Video file required' });
     }
 
     await db.query(
       'INSERT INTO videos (user_id, title, caption, video_url) VALUES (?, ?, ?, ?)',
-      [req.session.userId, title, caption || '', `/uploads/${req.file.filename}`]
+      [req.session.userId, title || '', caption || '', `/uploads/${req.file.filename}`]
     );
 
     res.json({ success: true });
@@ -227,7 +246,18 @@ app.get('/api/me/profile', requireAuth, async (req, res) => {
   );
   const user = users[0];
 
-  // Liked videos — uses COUNT subqueries, no ORDER BY created_at on likes table
+  // Get following list
+  const [following] = await db.query(
+    `SELECT u.id, u.username, u.bio, u.avatar,
+      (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS followers
+    FROM follows f
+    JOIN users u ON f.following_id = u.id
+    WHERE f.follower_id = ?
+    ORDER BY u.username ASC`,
+    [userId]
+  );
+
+  // Liked videos
   const [likedVideos] = await db.query(
     `SELECT v.*, u.username,
       (SELECT COUNT(*) FROM likes WHERE video_id = v.id) AS likes,
@@ -256,31 +286,11 @@ app.get('/api/me/profile', requireAuth, async (req, res) => {
     [userId]
   );
 
-  // Recent views — safe fallback if views_log doesn't exist
-  let recentVideos = [];
-  try {
-    [recentVideos] = await db.query(
-      `SELECT v.*, u.username,
-        (SELECT COUNT(*) FROM likes WHERE video_id = v.id) AS likes,
-        (SELECT COUNT(*) FROM comments WHERE video_id = v.id) AS comments
-       FROM views_log vl
-       JOIN videos v ON vl.video_id = v.id
-       JOIN users u ON v.user_id = u.id
-       WHERE vl.user_id = ?
-       GROUP BY v.id
-       ORDER BY MAX(vl.viewed_at) DESC
-       LIMIT 5`,
-      [userId]
-    );
-  } catch (err) {
-    // views_log table doesn't exist yet — that's OK
-  }
-
   res.json({
     user,
+    following: following,
     liked: likedVideos,
-    commented: commentedVideos,
-    recent: recentVideos
+    commented: commentedVideos
   });
 });
 
@@ -382,10 +392,178 @@ app.post('/api/videos/:id/comments', requireAuth, async (req, res) => {
   res.json({ success: true });
 });
 
+// ============== UPDATE BIO ==============
+
+app.put('/api/me/bio', requireAuth, async (req, res) => {
+  const userId = req.session.userId;
+  const { bio } = req.body;
+
+  if (bio === undefined) {
+    return res.status(400).json({ error: 'Bio content is required' });
+  }
+
+  try {
+    await db.query(
+      'UPDATE users SET bio = ? WHERE id = ?',
+      [bio.substring(0, 200), userId]
+    );
+    
+    res.json({ success: true, bio: bio.substring(0, 200) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update bio' });
+  }
+});
+
+// ============== RECOMMENDED VIDEOS ==============
+
+app.get('/api/videos/:id/recommended', async (req, res) => {
+  const videoId = req.params.id;
+  
+  try {
+    const [recommended] = await db.query(
+      `SELECT v.*, u.username, u.avatar,
+        (SELECT COUNT(*) FROM likes WHERE video_id = v.id) AS likes,
+        (SELECT COUNT(*) FROM comments WHERE video_id = v.id) AS comments,
+        (v.views + 
+         (SELECT COUNT(*) FROM likes WHERE video_id = v.id) * 10 + 
+         (SELECT COUNT(*) FROM comments WHERE video_id = v.id) * 5) AS engagement_score
+      FROM videos v
+      JOIN users u ON v.user_id = u.id
+      WHERE v.id != ?
+      ORDER BY engagement_score DESC
+      LIMIT 6`,
+      [videoId]
+    );
+    
+    res.json(recommended);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch recommendations' });
+  }
+});
+
+// ============== GET FOLLOWING LIST ==============
+
+app.get('/api/me/following', requireAuth, async (req, res) => {
+  const userId = req.session.userId;
+
+  try {
+    const [following] = await db.query(
+      `SELECT u.id, u.username, u.bio, u.avatar,
+        (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS followers
+       FROM follows f
+       JOIN users u ON f.following_id = u.id
+       WHERE f.follower_id = ?
+       ORDER BY u.username ASC`,
+      [userId]
+    );
+    
+    res.json({ following });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch following list' });
+  }
+});
+
+// ============== SETTINGS ==============
+
+// Change username
+app.put('/api/me/username', requireAuth, async (req, res) => {
+  const userId = req.session.userId;
+  const { newUsername, password } = req.body;
+
+  if (!newUsername || !password) {
+    return res.status(400).json({ error: 'All fields required' });
+  }
+
+  if (newUsername.length < 3) {
+    return res.status(400).json({ error: 'Username must be at least 3 characters' });
+  }
+
+  try {
+    const [users] = await db.query('SELECT password FROM users WHERE id = ?', [userId]);
+    const valid = await bcrypt.compare(password, users[0].password);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+
+    const [existing] = await db.query('SELECT id FROM users WHERE username = ? AND id != ?', [newUsername, userId]);
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Username already taken' });
+    }
+
+    await db.query('UPDATE users SET username = ? WHERE id = ?', [newUsername, userId]);
+    res.json({ success: true, username: newUsername });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update username' });
+  }
+});
+
+// Change password
+app.put('/api/me/password', requireAuth, async (req, res) => {
+  const userId = req.session.userId;
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'All fields required' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  try {
+    const [users] = await db.query('SELECT password FROM users WHERE id = ?', [userId]);
+    const valid = await bcrypt.compare(currentPassword, users[0].password);
+    if (!valid) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    await db.query('UPDATE users SET password = ? WHERE id = ?', [hash, userId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update password' });
+  }
+});
+
+// Get login history
+app.get('/api/me/login-history', requireAuth, async (req, res) => {
+  const userId = req.session.userId;
+
+  try {
+    const [history] = await db.query(
+      `SELECT id, login_time, ip_address, user_agent
+       FROM login_history
+       WHERE user_id = ?
+       ORDER BY login_time DESC
+       LIMIT 20`,
+      [userId]
+    );
+    res.json({ history });
+  } catch (err) {
+    console.error('Login history error:', err.message);
+    res.json({ history: [] });
+  }
+});
+
 // ============== FALLBACK ==============
 
+app.get('/', (req, res) => {
+  if (req.session.userId) {
+    return res.redirect('/home.html');
+  }
+  return res.redirect('/login.html');
+});
+
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  if (req.session.userId) {
+    return res.redirect('/home.html');
+  }
+  return res.redirect('/login.html');
 });
 
 app.listen(PORT, () => {

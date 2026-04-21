@@ -10,7 +10,6 @@ CREATE TABLE users (
   password VARCHAR(255) NOT NULL,
   bio TEXT DEFAULT '',
   avatar VARCHAR(255) DEFAULT 'https://ui-avatars.com/api/?background=01696f&color=fff&name=User',
-  favorite_tag VARCHAR(50) DEFAULT 'general',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   last_login DATETIME NULL
 );
@@ -68,6 +67,16 @@ CREATE TABLE views_log (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
   INDEX (user_id, viewed_at)
+);
+
+CREATE TABLE IF NOT EXISTS login_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  ip_address VARCHAR(45) NULL,
+  user_agent TEXT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX (user_id, login_time)
 );
 
 -- Sample Users
