@@ -7,16 +7,60 @@ const mysql = require('mysql2/promise');
 
 const PORT = process.env.PORT || 3000;
 
+require('dotenv').config();
+
 const dbConfig = {
-  host: 'localhost',
-  user: 'root',
-  password: 'Ssc2017044',
-  database: 'vibecheck'
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT),
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 };
 
 let db;
 (async () => {
-  db = await mysql.createPool(dbConfig);
+  try {
+    db = await mysql.createPool(dbConfig);
+    // Ensure required feature tables exist for environments that were initialized before recent migrations.
+    await db.query(`
+    CREATE TABLE IF NOT EXISTS views_log (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      video_id INT NOT NULL,
+      viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
+      INDEX (user_id, viewed_at)
+    )
+  `);
+    await db.query(`
+    CREATE TABLE IF NOT EXISTS login_history (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+      ip_address VARCHAR(45) NULL,
+      user_agent TEXT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      INDEX (user_id, login_time)
+    )
+  `);
+    // Portable migration: ADD COLUMN IF NOT EXISTS is not available on all MySQL/MariaDB versions.
+    const [cols] = await db.query(
+      `SELECT 1 AS ok FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'videos' AND COLUMN_NAME = 'is_private'
+       LIMIT 1`
+    );
+    if (!cols.length) {
+      await db.query(
+        'ALTER TABLE videos ADD COLUMN is_private TINYINT(1) NOT NULL DEFAULT 0'
+      );
+    }
+  } catch (err) {
+    console.error('Database migration failed:', err.message);
+  }
 })();
 
 const app = express();
@@ -130,15 +174,17 @@ app.post('/api/logout', (req, res) => {
 // ============== RECOMMENDATIONS ==============
 
 app.get('/api/recommendations', async (req, res) => {
+  const viewerId = req.session.userId || null;
   const [videos] = await db.query(`
     SELECT v.*, u.username, u.avatar,
       (SELECT COUNT(*) FROM likes WHERE video_id = v.id) AS likes,
       (SELECT COUNT(*) FROM comments WHERE video_id = v.id) AS comments
     FROM videos v
     JOIN users u ON v.user_id = u.id
+    WHERE v.is_private = 0 OR v.user_id = ?
     ORDER BY v.created_at DESC
     LIMIT 40
-  `);
+  `, [viewerId || -1]);
 
   res.json(videos);
 });
@@ -147,14 +193,19 @@ app.get('/api/recommendations', async (req, res) => {
 
 app.post('/api/upload', requireAuth, upload.single('videoFile'), async (req, res) => {
   try {
-    const { title, caption } = req.body;
+    const { title, caption, category } = req.body;
     if (!req.file) {
       return res.status(400).json({ error: 'Video file required' });
     }
 
     await db.query(
       'INSERT INTO videos (user_id, title, caption, video_url) VALUES (?, ?, ?, ?)',
-      [req.session.userId, title || '', caption || '', `/uploads/${req.file.filename}`]
+      [
+        req.session.userId,
+        title || '',
+        [caption, category ? `#${String(category).toLowerCase()}` : ''].filter(Boolean).join(' ').trim(),
+        `/uploads/${req.file.filename}`
+      ]
     );
 
     res.json({ success: true });
@@ -196,9 +247,9 @@ app.get('/api/users/:id', async (req, res) => {
       (SELECT COUNT(*) FROM comments WHERE video_id = v.id) AS comments
      FROM videos v
      JOIN users u ON v.user_id = u.id
-     WHERE v.user_id = ?
+     WHERE v.user_id = ? AND (v.is_private = 0 OR ? = ?)
      ORDER BY v.created_at DESC`,
-    [profileId]
+    [profileId, viewerId || -1, Number(profileId)]
   );
 
   res.json({
@@ -286,11 +337,52 @@ app.get('/api/me/profile', requireAuth, async (req, res) => {
     [userId]
   );
 
+  let uploadedVideos = [];
+  try {
+    const [uploadedRows] = await db.query(
+      `SELECT v.*, u.username, u.avatar,
+        (SELECT COUNT(*) FROM likes WHERE video_id = v.id) AS likes,
+        (SELECT COUNT(*) FROM comments WHERE video_id = v.id) AS comments
+       FROM videos v
+       JOIN users u ON v.user_id = u.id
+       WHERE v.user_id = ?
+       ORDER BY v.created_at DESC
+       LIMIT 50`,
+      [userId]
+    );
+    uploadedVideos = uploadedRows;
+  } catch (err) {
+    console.error('Uploaded videos query failed:', err.message);
+  }
+
+  let recentVideos = [];
+  try {
+    const [recentRows] = await db.query(
+      `SELECT v.*, u.username, u.avatar,
+        (SELECT COUNT(*) FROM likes WHERE video_id = v.id) AS likes,
+        (SELECT COUNT(*) FROM comments WHERE video_id = v.id) AS comments,
+        MAX(vl.viewed_at) AS last_viewed_at
+       FROM views_log vl
+       JOIN videos v ON vl.video_id = v.id
+       JOIN users u ON v.user_id = u.id
+       WHERE vl.user_id = ?
+       GROUP BY v.id
+       ORDER BY last_viewed_at DESC
+       LIMIT 20`,
+      [userId]
+    );
+    recentVideos = recentRows;
+  } catch (err) {
+    console.error('Recent videos query failed:', err.message);
+  }
+
   res.json({
     user,
     following: following,
     liked: likedVideos,
-    commented: commentedVideos
+    commented: commentedVideos,
+    uploaded: uploadedVideos,
+    recent: recentVideos
   });
 });
 
@@ -309,7 +401,7 @@ app.get('/api/videos/:id', async (req, res) => {
         [viewerId, videoId]
       );
     } catch (err) {
-      // views_log doesn't exist — ignore
+      console.error('Failed to record view log:', err.message);
     }
   }
 
@@ -325,6 +417,9 @@ app.get('/api/videos/:id', async (req, res) => {
   );
   const video = rows[0];
   if (!video) return res.status(404).json({ error: 'Video not found' });
+  if (video.is_private && String(video.user_id) !== String(viewerId || '')) {
+    return res.status(403).json({ error: 'This video is private' });
+  }
 
   let liked = false;
   if (viewerId) {
@@ -419,22 +514,76 @@ app.put('/api/me/bio', requireAuth, async (req, res) => {
 
 app.get('/api/videos/:id/recommended', async (req, res) => {
   const videoId = req.params.id;
+  const viewerId = req.session.userId || null;
   
   try {
-    const [recommended] = await db.query(
-      `SELECT v.*, u.username, u.avatar,
-        (SELECT COUNT(*) FROM likes WHERE video_id = v.id) AS likes,
-        (SELECT COUNT(*) FROM comments WHERE video_id = v.id) AS comments,
-        (v.views + 
-         (SELECT COUNT(*) FROM likes WHERE video_id = v.id) * 10 + 
-         (SELECT COUNT(*) FROM comments WHERE video_id = v.id) * 5) AS engagement_score
-      FROM videos v
-      JOIN users u ON v.user_id = u.id
-      WHERE v.id != ?
-      ORDER BY engagement_score DESC
-      LIMIT 6`,
-      [videoId]
-    );
+    let recommended = [];
+
+    if (viewerId) {
+      const [signals] = await db.query(
+        `SELECT COALESCE(v.caption, '') AS caption, COALESCE(v.title, '') AS title
+         FROM likes l
+         JOIN videos v ON l.video_id = v.id
+         WHERE l.user_id = ?
+         UNION ALL
+         SELECT COALESCE(v.caption, '') AS caption, COALESCE(v.title, '') AS title
+         FROM comments c
+         JOIN videos v ON c.video_id = v.id
+         WHERE c.user_id = ?`,
+        [viewerId, viewerId]
+      );
+
+      const tagCount = {};
+      signals.forEach((row) => {
+        const text = `${row.title} ${row.caption}`.toLowerCase();
+        const tags = text.match(/#[a-z0-9_]+/g) || [];
+        tags.forEach((tag) => { tagCount[tag] = (tagCount[tag] || 0) + 1; });
+      });
+
+      const topTags = Object.entries(tagCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([tag]) => tag);
+
+      if (topTags.length) {
+        const tagClause = topTags.map(() => '(LOWER(v.caption) LIKE ? OR LOWER(v.title) LIKE ?)').join(' OR ');
+        const tagParams = topTags.flatMap((tag) => [`%${tag}%`, `%${tag}%`]);
+
+        const [themeBased] = await db.query(
+          `SELECT v.*, u.username, u.avatar,
+            (SELECT COUNT(*) FROM likes WHERE video_id = v.id) AS likes,
+            (SELECT COUNT(*) FROM comments WHERE video_id = v.id) AS comments,
+            (v.views +
+             (SELECT COUNT(*) FROM likes WHERE video_id = v.id) * 10 +
+             (SELECT COUNT(*) FROM comments WHERE video_id = v.id) * 5) AS engagement_score
+           FROM videos v
+           JOIN users u ON v.user_id = u.id
+           WHERE v.id != ? AND v.is_private = 0 AND (${tagClause})
+           ORDER BY engagement_score DESC
+           LIMIT 6`,
+          [videoId, ...tagParams]
+        );
+        recommended = themeBased;
+      }
+    }
+
+    if (!recommended.length) {
+      const [fallback] = await db.query(
+        `SELECT v.*, u.username, u.avatar,
+          (SELECT COUNT(*) FROM likes WHERE video_id = v.id) AS likes,
+          (SELECT COUNT(*) FROM comments WHERE video_id = v.id) AS comments,
+          (v.views +
+           (SELECT COUNT(*) FROM likes WHERE video_id = v.id) * 10 +
+           (SELECT COUNT(*) FROM comments WHERE video_id = v.id) * 5) AS engagement_score
+         FROM videos v
+         JOIN users u ON v.user_id = u.id
+         WHERE v.id != ? AND v.is_private = 0
+         ORDER BY engagement_score DESC
+         LIMIT 6`,
+        [videoId]
+      );
+      recommended = fallback;
+    }
     
     res.json(recommended);
   } catch (err) {
@@ -463,6 +612,76 @@ app.get('/api/me/following', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch following list' });
+  }
+});
+
+app.put('/api/videos/:id/privacy', requireAuth, async (req, res) => {
+  const videoId = req.params.id;
+  const userId = req.session.userId;
+  const raw = req.body?.isPrivate;
+  const isPrivate = raw === true || raw === 1 || raw === '1' ? 1 : 0;
+
+  try {
+    const [rows] = await db.query(
+      'SELECT id FROM videos WHERE id = ? AND user_id = ?',
+      [videoId, userId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Video not found' });
+
+    await db.query('UPDATE videos SET is_private = ? WHERE id = ?', [isPrivate, videoId]);
+    res.json({ success: true, is_private: isPrivate });
+  } catch (err) {
+    console.error('Privacy update failed:', err);
+    res.status(500).json({ error: err.message || 'Failed to update privacy' });
+  }
+});
+
+app.delete('/api/videos/:id', requireAuth, async (req, res) => {
+  const videoId = req.params.id;
+  const userId = req.session.userId;
+  let conn;
+  try {
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      'SELECT id FROM videos WHERE id = ? AND user_id = ?',
+      [videoId, userId]
+    );
+    if (!rows[0]) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Video not found' });
+    }
+
+    // Remove dependent rows first so delete succeeds even without ON DELETE CASCADE on legacy DBs.
+    await conn.query('DELETE FROM views_log WHERE video_id = ?', [videoId]);
+    await conn.query('DELETE FROM likes WHERE video_id = ?', [videoId]);
+    await conn.query('DELETE FROM comments WHERE video_id = ?', [videoId]);
+    const [delResult] = await conn.query(
+      'DELETE FROM videos WHERE id = ? AND user_id = ?',
+      [videoId, userId]
+    );
+
+    await conn.commit();
+
+    const affected = delResult.affectedRows ?? 0;
+    if (!affected) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    if (conn) {
+      try {
+        await conn.rollback();
+      } catch (_) {
+        /* ignore rollback errors */
+      }
+    }
+    console.error('Video delete failed:', err);
+    res.status(500).json({ error: err.message || 'Failed to delete video' });
+  } finally {
+    if (conn) conn.release();
   }
 });
 
