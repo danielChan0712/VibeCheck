@@ -8,7 +8,7 @@ CREATE TABLE users (
   username VARCHAR(50) UNIQUE NOT NULL,
   email VARCHAR(100) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
-  bio TEXT DEFAULT '',
+  bio TEXT,
   avatar VARCHAR(255) DEFAULT 'https://ui-avatars.com/api/?background=01696f&color=fff&name=User',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   last_login DATETIME NULL
