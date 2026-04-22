@@ -1,1 +1,67 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Login | VibeCheck</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"></head><body data-page="login"><div class="auth-layout"><section class="auth-panel glass"><div class="brand-inline"><div class="logo-mini"></div><span>VibeCheck</span></div><h1>Welcome back</h1><p class="muted">Use sample login: sarah@test.com / password123, or create a new one.</p><div class="auth-tabs"><button class="tab is-active" data-auth-tab="login">Login</button><button class="tab" data-auth-tab="signup">Sign Up</button></div><form id="loginForm" class="auth-form"><label>Email<input type="email" name="email" value="sarah@test.com" required></label><label>Password<input type="password" name="password" value="password123" required></label><button class="btn btn-primary" type="submit">Login</button></form><form id="signupForm" class="auth-form hidden"><label>Username<input type="text" name="username" required></label><label>Email<input type="email" name="email" required></label><label>Password<input type="password" name="password" required></label><button class="btn btn-primary" type="submit">Create account</button></form><p id="authMessage" class="status-text"></p></section></div><script src="/script.js" defer></script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | VibeCheck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body data-page="login">
+  <div class="auth-layout">
+    <section class="auth-panel glass">
+      <div class="brand-inline">
+        <div class="logo-mini"></div>
+        <span>VibeCheck</span>
+      </div>
+
+      <h1>Welcome back</h1>
+      <p class="muted">Login to your account, or create a new one.</p>
+
+      <div class="auth-tabs">
+        <button class="tab is-active" data-auth-tab="login">Login</button>
+        <button class="tab" data-auth-tab="signup">Sign Up</button>
+      </div>
+
+      <form id="loginForm" class="auth-form">
+        <label>
+          Email
+          <input type="email" name="email" value="" required>
+        </label>
+
+        <label>
+          Password
+          <input type="password" name="password" value="" required>
+        </label>
+
+        <button class="btn btn-primary" type="submit">Login</button>
+      </form>
+
+      <form id="signupForm" class="auth-form hidden">
+        <label>
+          Username
+          <input type="text" name="username" required>
+        </label>
+
+        <label>
+          Email
+          <input type="email" name="email" required>
+        </label>
+
+        <label>
+          Password
+          <input type="password" name="password" required>
+        </label>
+
+        <button class="btn btn-primary" type="submit">Create account</button>
+      </form>
+
+      <p id="authMessage" class="status-text"></p>
+    </section>
+  </div>
+
+  <script src="/script.js" defer></script>
+</body>
+</html>

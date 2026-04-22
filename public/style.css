@@ -1,6 +1,24 @@
+/* =============================================================================
+   VibeCheck - Design System & Global Styles
+   =============================================================================
+   A comprehensive styling framework for the VibeCheck video platform.
+   Features a glass-morphism aesthetic with smooth animations, responsive
+   layouts, and a cohesive color system built around teal and neutral tones.
+   ============================================================================= */
+
+/* =============================================================================
+   CSS Custom Properties (Design Tokens)
+   =============================================================================
+   Centralized design variables for consistent theming across the application.
+   Includes fluid typography, color palette, spacing, and animation presets.
+   ============================================================================= */
+
 :root {
+  /* Fluid Typography - Scales smoothly between mobile and desktop */
   --text-base: clamp(1rem, .95rem + .25vw, 1.125rem);
   --text-sm: clamp(.875rem, .8rem + .35vw, 1rem);
+  
+  /* Color System */
   --color-bg: #f7f6f2;
   --color-border: #d8d3ca;
   --color-text: #28251d;
@@ -8,11 +26,22 @@
   --color-primary: #01696f;
   --color-primary-hover: #0c4e54;
   --color-primary-soft: #d7ecec;
+  
+  /* Visual Effects */
   --shadow: 0 20px 40px rgba(40, 37, 29, .08);
   --radius: 22px;
+  
+  /* Typography Families */
   --font-body: 'Satoshi', sans-serif;
   --font-display: 'Cabinet Grotesk', sans-serif;
 }
+
+/* =============================================================================
+   Base Styles & Reset
+   =============================================================================
+   Foundation styles applied globally. Includes box-sizing reset, body
+   background with texture overlay, and base typography settings.
+   ============================================================================= */
 
 * {
   box-sizing: border-box;
@@ -23,10 +52,17 @@ body {
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--color-text);
-  background: linear-gradient(135deg, #f7f6f2, #eae7dc), url('https://www.transparenttextures.com/patterns/white-diamond.png');
+  background: linear-gradient(135deg, #f7f6f2, #eae7dc), 
+              url('https://www.transparenttextures.com/patterns/white-diamond.png');
   background-attachment: fixed;
   background-size: cover;
 }
+
+/* =============================================================================
+   Element Base Styles
+   =============================================================================
+   Default styling for native HTML elements before component classes.
+   ============================================================================= */
 
 a {
   position: relative;
@@ -40,6 +76,7 @@ a:hover {
   color: var(--color-primary-hover);
 }
 
+/* Animated underline effect on hover */
 a::after {
   content: '';
   position: absolute;
@@ -66,13 +103,44 @@ video {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
+
+/* =============================================================================
+   Utility Classes
+   =============================================================================
+   Single-purpose helper classes for common styling patterns.
+   ============================================================================= */
 
 .hidden {
   display: none !important;
 }
+
+.muted,
+.status-text {
+  color: var(--color-text-muted);
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--color-primary);
+  margin-bottom: .5rem;
+  background: var(--color-primary-soft);
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+}
+
+/* =============================================================================
+   Glass Morphism Effect
+   =============================================================================
+   Core visual style - frosted glass panels with backdrop blur.
+   Used for cards, panels, sidebar, and modal containers.
+   ============================================================================= */
 
 .glass {
   background: rgba(255, 255, 255, 0.75);
@@ -81,6 +149,13 @@ select {
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
   border-radius: var(--radius);
 }
+
+/* =============================================================================
+   Button Components
+   =============================================================================
+   Primary and secondary button variants with hover states, animations,
+   and accessibility considerations.
+   ============================================================================= */
 
 .btn {
   border: none;
@@ -94,6 +169,7 @@ select {
   letter-spacing: 0.05em;
 }
 
+/* Primary Button - Gradient background with pseudo-element border */
 .btn-primary {
   background: linear-gradient(135deg, var(--color-primary), #0c4e54);
   color: #fff;
@@ -125,6 +201,7 @@ select {
   box-shadow: 0 2px 4px rgba(1, 105, 111, 0.2);
 }
 
+/* Secondary Button - Subtle outline style */
 .btn-secondary {
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid var(--color-border);
@@ -137,20 +214,136 @@ select {
   color: var(--color-primary-hover);
 }
 
-.eyebrow {
-  font-size: var(--text-sm);
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: var(--color-primary);
-  margin-bottom: .5rem;
+.btn-secondary:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 4px rgba(1, 105, 111, 0.15);
 }
 
-.muted,
-.status-text {
+/* Small button variant */
+.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+}
+
+/* =============================================================================
+   Button Click Animation
+   =============================================================================
+   Pulse animation applied via JavaScript on button clicks.
+   ============================================================================= */
+
+@keyframes btnClickPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.btn-click-animation {
+  animation: btnClickPulse 180ms ease;
+}
+
+/* =============================================================================
+   Page Entrance Animation
+   =============================================================================
+   Smooth fade-in effect for hero sections and main content.
+   ============================================================================= */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =============================================================================
+   Form Elements
+   =============================================================================
+   Styling for inputs, selects, textareas, and form groups.
+   ============================================================================= */
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: .95rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  font-family: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+input:disabled,
+textarea:disabled {
+  background: #f5f5f5;
   color: var(--color-text-muted);
 }
 
-.landing-shell,
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.form-group small {
+  font-size: 0.75rem;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* =============================================================================
+   Form Layouts
+   =============================================================================
+   Specific form container styles for auth, upload, settings, and bio forms.
+   ============================================================================= */
+
+.auth-form,
+.upload-form,
+.comment-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.bio-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* =============================================================================
+   Authentication Pages (Login/Signup)
+   =============================================================================
+   Styles specific to the authentication flow layout and components.
+   ============================================================================= */
+
 .auth-layout {
   min-height: 100vh;
   display: grid;
@@ -158,43 +351,10 @@ select {
   padding: 1.5rem;
 }
 
-.landing-card,
 .auth-panel {
   width: min(720px, 100%);
   border-radius: var(--radius);
   padding: 2rem;
-}
-
-.brand-lockup {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.logo-mark {
-  width: 72px;
-  color: var(--color-primary);
-}
-
-.hero-actions {
-  display: flex;
-  gap: .75rem;
-  flex-wrap: wrap;
-  margin-top: 1.5rem;
-}
-
-.brand-inline,
-.brand-link {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-}
-
-.logo-mini {
-  width: 18px;
-  height: 18px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, var(--color-primary), #3ab0b6);
-  display: inline-block;
 }
 
 .auth-tabs {
@@ -209,6 +369,7 @@ select {
   background: transparent;
   border-radius: 999px;
   padding: .85rem 1rem;
+  cursor: pointer;
 }
 
 .tab.is-active {
@@ -217,23 +378,44 @@ select {
   border-color: transparent;
 }
 
-.auth-form,
-.upload-form,
-.comment-form {
+/* =============================================================================
+   Brand Elements
+   =============================================================================
+   Logo, brand lockup, and branding-related components.
+   ============================================================================= */
+
+.brand-lockup {
   display: grid;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
-input,
-select {
-  width: 100%;
-  padding: .95rem 1rem;
-  border-radius: 14px;
-  border: 1px solid var(--color-border);
-  background: #fff;
+.brand-inline,
+.brand-link {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
 }
 
-/* App layout */
+.logo-mark {
+  width: 72px;
+  color: var(--color-primary);
+}
+
+.logo-mini {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--color-primary), #3ab0b6);
+  display: inline-block;
+}
+
+/* =============================================================================
+   App Shell Layout
+   =============================================================================
+   Main application layout with sidebar navigation and content area.
+   Uses CSS Grid for responsive two-column structure.
+   ============================================================================= */
+
 .app-shell {
   display: grid;
   grid-template-columns: 260px 1fr;
@@ -241,6 +423,18 @@ select {
   gap: 1.5rem;
   padding: 1.5rem;
 }
+
+.content {
+  display: grid;
+  gap: 1.5rem;
+  align-content: start;
+}
+
+/* =============================================================================
+   Sidebar Navigation
+   =============================================================================
+   Sticky sidebar with glass effect, brand link, and navigation menu.
+   ============================================================================= */
 
 .sidebar {
   border-radius: var(--radius);
@@ -272,13 +466,33 @@ select {
   color: var(--color-primary);
 }
 
-.content {
-  display: grid;
-  gap: 1.5rem;
-  align-content: start;
+/* =============================================================================
+   Hero Section
+   =============================================================================
+   Prominent header section used on landing and settings pages.
+   ============================================================================= */
+
+.hero-strip {
+  border-radius: var(--radius);
+  padding: 2.5rem;
+  background: linear-gradient(135deg, rgba(1, 105, 111, 0.1), rgba(255, 127, 80, 0.1));
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.5s ease;
 }
 
-.hero-strip,
+.hero-actions {
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+
+/* =============================================================================
+   Panel Components
+   =============================================================================
+   Reusable panel containers for content sections.
+   ============================================================================= */
+
 .panel,
 .profile-hero,
 .video-player-panel {
@@ -286,7 +500,6 @@ select {
   padding: 1.5rem;
 }
 
-/* Section header (includes sort) */
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -296,30 +509,16 @@ select {
   margin-bottom: 1rem;
 }
 
-/* minor helper to let left/right breathe */
 .section-head-split {
   align-items: flex-end;
 }
 
-/* Sort control for recommendations */
-.sort-control {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  flex-wrap: wrap;
-}
+/* =============================================================================
+   Video Grid & Cards
+   =============================================================================
+   Responsive grid layout for video thumbnails with hover effects.
+   ============================================================================= */
 
-.sort-control span {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
-.sort-control select {
-  width: auto;
-  min-width: 140px;
-}
-
-/* Video cards */
 .video-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -359,6 +558,19 @@ select {
   font-size: var(--text-sm);
 }
 
+.meta-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+/* =============================================================================
+   Creator Components
+   =============================================================================
+   Creator chip (inline creator info) and avatar styles.
+   ============================================================================= */
+
 .creator-chip {
   display: flex;
   align-items: center;
@@ -373,7 +585,17 @@ select {
   object-fit: cover;
 }
 
-/* Profile */
+.avatar-lg {
+  width: 88px;
+  height: 88px;
+}
+
+/* =============================================================================
+   Profile Components
+   =============================================================================
+   Profile header, stats row, and user card styles.
+   ============================================================================= */
+
 .profile-top {
   display: flex;
   gap: 1rem;
@@ -387,11 +609,6 @@ select {
   box-shadow: 0 6px 8px rgba(1, 105, 111, 0.3);
 }
 
-.avatar-lg {
-  width: 88px;
-  height: 88px;
-}
-
 .stat-row {
   display: flex;
   gap: 1rem;
@@ -399,39 +616,12 @@ select {
   color: var(--color-text-muted);
 }
 
-/* Video page */
-.video-layout {
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr);
-}
+/* =============================================================================
+   User Grid & Cards (Following List)
+   =============================================================================
+   Grid layout for displaying user profiles in the following section.
+   ============================================================================= */
 
-.video-player-panel video {
-  width: 100%;
-  border-radius: 18px;
-  background: #000;
-}
-
-.video-actions {
-  display: flex;
-  gap: .75rem;
-  flex-wrap: wrap;
-  margin: 1rem 0;
-}
-
-/* Comments */
-.comment-list {
-  display: grid;
-  gap: .75rem;
-  margin-top: 1rem;
-}
-
-.comment-item {
-  padding: .75rem;
-  border-radius: 14px;
-  background: #fff;
-  border: 1px solid var(--color-border);
-}
-
-/* User grid for following list */
 .users-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -486,35 +676,60 @@ select {
   white-space: nowrap;
 }
 
-/* Bio form */
-.bio-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+/* =============================================================================
+   Video Player Page
+   =============================================================================
+   Layout and components specific to the video watch page.
+   ============================================================================= */
+
+.video-layout {
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr);
 }
 
-.bio-form textarea {
+.video-player-panel video {
   width: 100%;
-  padding: 0.95rem 1rem;
-  border-radius: 14px;
-  border: 1px solid var(--color-border);
-  background: #fff;
-  font-family: inherit;
-  resize: vertical;
+  border-radius: 18px;
+  background: #000;
 }
 
-.form-actions {
+.video-actions {
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  gap: .75rem;
   flex-wrap: wrap;
+  margin: 1rem 0;
 }
 
-#bioMessage {
-  font-size: 0.875rem;
+/* =============================================================================
+   Comments Section
+   =============================================================================
+   Comment list and individual comment item styling.
+   ============================================================================= */
+
+.comment-list {
+  display: grid;
+  gap: .75rem;
+  margin-top: 1rem;
 }
 
-/* Recommended videos section */
+.comment-item {
+  padding: .75rem;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+}
+
+.comment-item small {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+}
+
+/* =============================================================================
+   Recommendations Sidebar
+   =============================================================================
+   Recommended videos section on the video watch page.
+   ============================================================================= */
+
 .recommended-card {
   transition: transform 0.2s ease;
 }
@@ -532,111 +747,27 @@ select {
   padding: 2rem;
 }
 
-/* Video category eyebrow */
-.eyebrow {
-  display: inline-block;
-  background: var(--color-primary-soft);
-  padding: 0.25rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-}
+/* =============================================================================
+   Sort Controls
+   =============================================================================
+   Sorting dropdown and button styles for the recommendations feed.
+   ============================================================================= */
 
-/* Settings page styles */
-.settings-form {
+.sort-control {
   display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-group label {
-  font-weight: 500;
-  color: var(--color-text);
-}
-
-.form-group input,
-.form-group textarea {
-  width: 100%;
-  padding: 0.95rem 1rem;
-  border-radius: 14px;
-  border: 1px solid var(--color-border);
-  background: #fff;
-  font-family: inherit;
-}
-
-.form-group input:disabled,
-.form-group textarea:disabled {
-  background: #f5f5f5;
-  color: var(--color-text-muted);
-}
-
-.form-group small {
-  font-size: 0.75rem;
-}
-
-/* Login history styles */
-.login-history {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.history-item {
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: #fff;
-  transition: all 0.2s ease;
-}
-
-.history-item:hover {
-  background: var(--color-primary-soft);
-  transform: translateX(4px);
-}
-
-.history-time {
-  margin-bottom: 0.5rem;
-}
-
-.history-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-}
-
-/* Date/time styling */
-.meta-row span {
-  display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  white-space: nowrap;
+  gap: .5rem;
+  flex-wrap: wrap;
 }
 
-.comment-item small {
-  display: block;
-  margin-top: 0.5rem;
-  font-size: 0.7rem;
+.sort-control span {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
-/* Filter Panel Styles */
-.filter-group {
-  margin-bottom: 1.5rem;
-}
-
-.filter-group label {
-  display: block;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-  color: var(--color-text);
+.sort-control select {
+  width: auto;
+  min-width: 140px;
 }
 
 .sort-buttons,
@@ -666,12 +797,35 @@ select {
   border-color: var(--color-primary);
 }
 
+.sort-btn:active,
+.order-btn:active,
+.date-preset-btn:active {
+  transform: scale(0.98);
+}
+
 .sort-btn.active,
 .order-btn.active,
 .date-preset-btn.active {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: white;
+}
+
+/* =============================================================================
+   Filter Panel
+   =============================================================================
+   Collapsible filter panel with range inputs, date pickers, and presets.
+   ============================================================================= */
+
+.filter-group {
+  margin-bottom: 1.5rem;
+}
+
+.filter-group label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: var(--color-text);
 }
 
 .filter-row {
@@ -721,22 +875,26 @@ select {
   border: 1px solid var(--color-border);
 }
 
-.btn-sm {
-  padding: 0.5rem 1rem;
-  font-size: 0.75rem;
-}
+/* =============================================================================
+   Active Filters Display
+   =============================================================================
+   Shows currently applied filters as removable tags.
+   ============================================================================= */
 
 .active-filters {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
   display: flex;
   flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
   align-items: center;
-  gap: 0.5rem;
 }
 
 .filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: var(--color-primary-soft);
   color: var(--color-primary);
   padding: 0.25rem 0.75rem;
@@ -744,7 +902,69 @@ select {
   font-size: 0.75rem;
 }
 
-/* Modal Styles */
+.filter-remove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+#filterErrorMessage {
+  color: #ff6b6b;
+  margin-top: 10px;
+}
+
+#resultCount {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+/* =============================================================================
+   Login History Section
+   =============================================================================
+   Displays user's login activity with timestamps and device info.
+   ============================================================================= */
+
+.login-history {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.history-item {
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: #fff;
+  transition: all 0.2s ease;
+}
+
+.history-item:hover {
+  background: var(--color-primary-soft);
+  transform: translateX(4px);
+}
+
+.history-time {
+  margin-bottom: 0.5rem;
+}
+
+.history-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+/* =============================================================================
+   Modal Components
+   =============================================================================
+   Reusable modal dialog with backdrop blur and centered content.
+   ============================================================================= */
+
 .modal {
   display: none;
   position: fixed;
@@ -798,23 +1018,12 @@ select {
   margin-top: 1rem;
 }
 
-#resultCount {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-}
+/* =============================================================================
+   Error Popup (Toast Notification)
+   =============================================================================
+   Sliding notification for error messages and alerts.
+   ============================================================================= */
 
-/* Responsive */
-@media (max-width: 768px) {
-  .filter-row {
-    grid-template-columns: 1fr;
-  }
-
-  .custom-date-range {
-    flex-wrap: wrap;
-  }
-}
-
-/* Error Popup */
 .error-popup {
   position: fixed;
   top: 20px;
@@ -852,183 +1061,37 @@ select {
     transform: translateX(100%);
     opacity: 0;
   }
-
   to {
     transform: translateX(0);
     opacity: 1;
   }
 }
 
-.hidden {
-  display: none !important;
-}
+/* =============================================================================
+   Landing Page Specific
+   =============================================================================
+   Styles for the unauthenticated landing/welcome page.
+   ============================================================================= */
 
-.active-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.filter-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 6px 10px;
-  border-radius: 999px;
-}
-
-.filter-remove {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-}
-
-#filterErrorMessage {
-  color: #ff6b6b;
-  margin-top: 10px;
-}
-
-/* Responsive */
-@media (max-width: 900px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .sidebar {
-    position: static;
-    height: auto;
-  }
-
-  .hero-strip {
-    padding: 1.5rem;
-  }
-}
-
-/* Refined button styles */
-.btn {
-  border: none;
-  border-radius: 999px;
-  padding: 0.9rem 1.5rem;
-  min-height: 44px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--color-primary), #0c4e54);
-  color: #fff;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-  position: relative;
-}
-
-.btn-primary::before {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  background: linear-gradient(135deg, #0c4e54, var(--color-primary));
-  border-radius: 999px;
-  z-index: -1;
-}
-
-.btn-primary:hover {
-  background: linear-gradient(135deg, #0c4e54, var(--color-primary));
-  transform: translateY(-2px);
-  box-shadow: 0 6px 8px rgba(1, 105, 111, 0.3);
-}
-
-.btn-primary:active {
-  transform: scale(0.98);
-  box-shadow: 0 2px 4px rgba(1, 105, 111, 0.2);
-}
-
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid var(--color-border);
-  color: var(--color-primary);
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.btn-secondary:hover {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-hover);
-}
-
-/* Add subtle animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Enhanced card styles */
-.video-card {
-  background: #fff;
-  border: 1px solid rgba(216, 211, 202, 0.8);
-  border-radius: 18px;
-  overflow: hidden;
+.landing-shell {
+  min-height: 100vh;
   display: grid;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.video-card:hover {
-  transform: translateY(-6px) scale(1.02);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-}
-
-/* Sidebar refinement */
-.sidebar {
-  border-radius: var(--radius);
+  place-items: center;
   padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  position: sticky;
-  top: 1.5rem;
-  height: calc(100vh - 3rem);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
-/* Hero section refinement */
-.hero-strip {
+.landing-card {
+  width: min(720px, 100%);
   border-radius: var(--radius);
-  padding: 2.5rem;
-  background: linear-gradient(135deg, rgba(1, 105, 111, 0.1), rgba(255, 127, 80, 0.1));
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-  animation: fadeIn 0.5s ease;
+  padding: 2rem;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
+/* =============================================================================
+   Responsive Breakpoints
+   =============================================================================
+   Mobile and tablet adaptations for the app shell and filter layouts.
+   ============================================================================= */
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Responsive adjustments */
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -1042,5 +1105,15 @@ select {
 
   .hero-strip {
     padding: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .filter-row {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-date-range {
+    flex-wrap: wrap;
   }
 }

@@ -1,221 +1,181 @@
 # VibeCheck
 
-A full-stack video sharing and vibe checking platform with user authentication, video uploads, and smart recommendations.
+A short-form video sharing platform where users can upload, watch, like, comment on, and follow content from others. Built with Node.js, Express, and MySQL.
+
+---
 
 ## Features
 
-- Login / Sign up system
-- Sidebar navigation menu
-- Home feed with personalized content
-- Profile page with user stats
-- Video upload and playback
-- Smart recommendation engine
-- Like, follow, and tag system
+- User Authentication — Signup, login (with bcrypt password hashing), session management, and logout
+- Video Upload — Upload videos with title, caption, and category (auto-tagged as hashtag)
+- Video Feed — Browse a recommendations feed sorted by recency
+- Personalized Recommendations — Videos recommended based on hashtags from your liked and commented videos
+- Engagement — Like, comment, and view videos with real-time count updates
+- Follow System — Follow and unfollow other users
+- Profile Dashboard — View your uploaded, liked, commented, and recently viewed videos
+- Public Profiles — Browse other users' videos and bio
+- Privacy Controls — Toggle videos between public and private
+- Security — Login history tracking with IP address and user agent
+- Settings — Change username, password, bio, and view login activity
+
+---
 
 ## Tech Stack
 
-- Backend: Node.js + Express
-- Database: MySQL
-- Frontend: HTML, CSS, JavaScript
-- File Upload: Multer
-- Authentication: JWT + bcrypt
+| Technology | Purpose |
+|------------|---------|
+| HTML / CSS / JavaScript | Frontend user interface |
+| Node.js + Express.js | Backend web server and RESTful API |
+| MySQL | Relational database |
+| mysql2 | MySQL connection pool and queries |
+| express-session | Session-based authentication |
+| bcrypt | Password hashing |
+| multer | File upload handling |
+| dotenv | Environment variable management |
+
+---
 
 ## Prerequisites
 
-Before you begin, ensure you have installed:
+- Node.js (v14 or later)
+- MySQL (v5.7 or later, or MariaDB)
+- npm (comes with Node.js)
 
-- Node.js (v14 or higher)
-- MySQL (v8 or higher)
-- Git (for cloning)
+---
 
-## Installation Guide
+## Installation
 
-### Step 1: Clone the Repository
+1. Clone the repository
 
-git clone https://github.com/danielChan0712/VibeCheck.git
-cd VibeCheck
+   git clone <repository-url>
+   cd VibeCheck
 
-### Step 2: Install Dependencies
+2. Install dependencies
 
-npm install
+   npm install
 
-This installs:
-- express (web server)
-- mysql2 (database driver)
-- dotenv (environment variables)
-- jsonwebtoken (authentication)
-- bcrypt (password hashing)
-- multer (file uploads)
-- cors (cross-origin requests)
+3. Set up environment variables
 
-### Step 3: Set Up the Database
+   Create a .env file in the project root with the following:
 
-Login to MySQL:
-mysql -u root -p
+   PORT=3000
+   DB_HOST=localhost
+   DB_PORT=3306
+   DB_USER=root
+   DB_PASSWORD=your_password
+   DB_NAME=vibecheck
 
-Inside MySQL, run:
-source database.sql;
-or copy-paste the contents of database.sql
+4. Set up the database
 
-Exit MySQL:
-exit;
+   mysql -u root -p
 
-### Step 4: Configure Environment Variables (.env)
+   CREATE DATABASE vibecheck;
+   USE vibecheck;
 
-What is .env?
-A .env file stores sensitive information like passwords and keys. It is NEVER uploaded to GitHub.
+   Then run the schema file:
 
-Create the .env file:
+   mysql -u root -p vibecheck < schema.sql
 
-On Mac/Linux:
-touch .env
+5. Create the uploads directory
 
-On Windows:
-type nul > .env
+   mkdir uploads
 
-Add these variables to .env:
+6. Start the server
 
-# Database Configuration
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=YOUR_MYSQL_PASSWORD_HERE
-DB_NAME=vibecheck_db
+   node server.js
 
-# Server Configuration
-PORT=3000
+   Visit http://localhost:3000 in your browser.
 
-# Security (Generate your own secret key)
-JWT_SECRET=your_super_secret_key_change_this
+---
 
-# File Upload
-MAX_FILE_SIZE=100000000
+## Database Schema
 
-How to get each value:
+The application uses 8 tables:
 
-DB_HOST: Usually "localhost"
-DB_USER: Your MySQL username (default is "root")
-DB_PASSWORD: Your MySQL password (what you set during MySQL installation)
-DB_NAME: Must match database.sql (use "vibecheck_db")
-PORT: Port for the server (use 3000 or any available port)
-JWT_SECRET: Generate a random string (see methods below)
+| Table | Description |
+|-------|-------------|
+| users | User accounts (username, email, password hash, bio, avatar) |
+| videos | Uploaded videos (title, caption, video_url, views, is_private) |
+| likes | User-video like relationships (many-to-many) |
+| comments | Video comments linked to users |
+| follows | User-to-user follow relationships (self-referencing many-to-many) |
+| views_log | Tracks video views per user for "recently viewed" history |
+| login_history | Login events with IP and user agent for security |
+| sessions | Active user sessions (managed by express-session) |
 
-Generate a secure JWT_SECRET:
+---
 
-Method 1 - Using Node.js:
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+## API Endpoints
 
-Method 2 - Using OpenSSL (Mac/Linux):
-openssl rand -hex 32
+Authentication
 
-Method 3 - Create a long random string manually:
-Example: "xK9mP2vL5nQ8rT3wE7yU1zC4"
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/me | Get current user info |
+| POST | /api/signup | Register a new account |
+| POST | /api/login | Log in (records login history) |
+| POST | /api/logout | Log out and clear session |
 
-### Step 5: Create Required Folders
+Videos
 
-Create folder for uploaded videos:
-mkdir -p public/videos
-mkdir -p uploads
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/videos/:id | Get video details, comments, like status |
+| POST | /api/videos/:id/like | Toggle like on a video |
+| POST | /api/videos/:id/comments | Add a comment |
+| GET | /api/videos/:id/recommended | Get personalized recommendations |
+| POST | /api/upload | Upload a new video |
+| PUT | /api/videos/:id/privacy | Toggle video privacy |
+| DELETE | /api/videos/:id | Delete a video and all related data |
 
-Set permissions (Mac/Linux):
-chmod 755 public/videos
-chmod 755 uploads
+Profiles
 
-### Step 6: Start the Application
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/users/:id | Get public profile and videos |
+| POST | /api/users/:id/follow | Follow/unfollow a user |
+| GET | /api/me/profile | Get own profile dashboard |
+| PUT | /api/me/bio | Update bio |
 
-Development mode (with auto-restart):
-npm run dev
+Settings
 
-OR Production mode:
-npm start
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| PUT | /api/me/username | Change username |
+| PUT | /api/me/password | Change password |
+| GET | /api/me/login-history | View login history |
 
-### Step 7: Access the Application
+Feed
 
-Open your browser and go to:
-http://localhost:3000
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/recommendations | Get all videos for the feed |
 
-## Using the Application
-
-### Demo Accounts (Quick Login)
-
-Click these buttons on the login page:
-- Demo User 1: alice@example.com
-- Demo User 2: bob@example.com
-- Demo User 3: charlie@example.com
-
-### Creating Your Own Account
-
-1. Click "Sign Up" on the login page
-2. Fill in your email and password
-3. Choose a favorite tag (music, gaming, comedy, etc.)
-4. Start uploading and sharing
-
-### Uploading Videos
-
-1. Click "Upload" in the sidebar
-2. Select a video file (MP4, MOV, etc.)
-3. Add a title, description, and tags
-4. Click "Upload" - your video will be processed
-
-### Getting Recommendations
-
-The recommendation engine suggests videos based on:
-- Your favorite tag
-- Who you follow
-- Videos you have liked
-- Most viewed content
-
-## Troubleshooting
-
-### Error: "Cannot find module 'dotenv'"
-
-npm install dotenv
-
-### Error: "ER_ACCESS_DENIED_ERROR"
-
-Your MySQL password in .env is incorrect. Check:
-- MySQL is running: mysql -u root -p
-- Password matches your MySQL setup
-
-### Error: "ER_BAD_DB_ERROR"
-
-Database does not exist. Run the SQL:
-mysql -u root -p < database.sql
-
-### Uploaded videos not showing
-
-Check folder permissions:
-ls -la public/videos
-Should be writable by Node.js
-
-### Port 3000 already in use
-
-Change PORT=3001 in .env or kill the process:
-
-On Mac/Linux:
-lsof -i :3000
-kill -9 [PID]
-
-On Windows:
-netstat -ano | findstr :3000
-taskkill /PID [PID] /F
+---
 
 ## Project Structure
 
 VibeCheck/
-├── server.js           # Main application
-├── database.sql        # Database schema
-├── package.json        # Dependencies
-├── .env               # Environment variables (create this)
-├── .gitignore         # Files ignored by git
-├── public/
-│   ├── index.html     # Main page
-│   ├── login.html     # Authentication
-│   ├── home.html      # Feed
-│   ├── profile.html   # User profile
-│   ├── video.html     # Video player
-│   ├── style.css      # Styling
-│   ├── script.js      # Frontend logic
-│   └── videos/        # Uploaded videos
-├── uploads/           # Temporary uploads
-└── python/
-    └── trending.py    # Recommendation engine
+├── public/                 # Static frontend files
+│   ├── index.html          # Landing page
+│   ├── home.html           # Main feed / recommendations
+│   ├── login.html          # Login / signup page
+│   ├── my-profile.html     # User dashboard
+│   ├── profile.html        # Public profile view
+│   ├── settings.html       # Account settings
+│   ├── video.html          # Video watch page
+│   ├── style.css           # Global styles
+│   └── script.js           # Frontend application logic
+├── uploads/                # Uploaded video files (created at runtime)
+├── .env                    # Environment variables (create this file)
+├── .gitignore              # Git ignore rules
+├── package.json            # Node.js dependencies and scripts
+├── package-lock.json       # Locked dependency versions
+├── schema.sql              # Database schema definition
+└── server.js               # Express backend server
+
+---
+
+## License
+
+This project is for educational/demo purposes.

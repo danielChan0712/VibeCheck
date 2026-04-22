@@ -1,5 +1,33 @@
+// =============================================================================
+// VibeCheck - Frontend Client Application
+// =============================================================================
+// This file handles all client-side routing, API communication, DOM rendering,
+// state management, and user interface logic for the VibeCheck video platform.
+// Includes page initializers for login, home feed, profile dashboards, video
+// player, and account settings with filtering, sorting, and CRUD operations.
+// =============================================================================
+
+// Read the current page identifier from the HTML body's data-page attribute.
+// Each HTML page sets this to determine which initialization function to run.
 const page = document.body.dataset.page;
 
+// =============================================================================
+// API Utilities & Data Normalization Helpers
+// =============================================================================
+// Core helper functions for making authenticated API requests and safely
+// extracting data from various response formats (handles schema variations).
+// =============================================================================
+
+/**
+ * Generic API request wrapper with automatic JSON parsing and error handling.
+ * Automatically sets Content-Type: application/json for JSON bodies, but omits
+ * it for FormData uploads so the browser can set the correct multipart boundary.
+ * Throws an Error with the backend message if the response is not OK.
+ * 
+ * @param {string} url - API endpoint path
+ * @param {object} options - Fetch options (method, body, headers, etc.)
+ * @returns {Promise<any>} Parsed JSON response data
+ */
 async function api(url, options = {}) {
   const response = await fetch(url, {
     credentials: 'same-origin',
@@ -12,36 +40,154 @@ async function api(url, options = {}) {
   return data;
 }
 
+/**
+ * Extract a query parameter value from the current page URL.
+ * Used to get IDs from URLs like /profile.html?id=5 or /video.html?id=42.
+ * 
+ * @param {string} name - The parameter name to look up
+ * @returns {string|null} Parameter value or null if not present
+ */
 function queryParam(name) {
   return new URLSearchParams(window.location.search).get(name);
 }
 
+/**
+ * Get video file URL from a video object, handling multiple possible property names.
+ * Accounts for variations in API response formats (video_url, videourl, videoUrl).
+ * 
+ * @param {object} video - Video object from API
+ * @returns {string} Video URL or empty string
+ */
 function getVideoUrl(video) {
   return video?.video_url || video?.videourl || video?.videoUrl || '';
 }
 
+/**
+ * Get thumbnail URL from a video object with a fallback placeholder image.
+ * Uses a default Unsplash image if no thumbnail is provided.
+ * 
+ * @param {object} video - Video object from API
+ * @returns {string} Thumbnail URL
+ */
 function getThumbUrl(video) {
   const url = video?.thumbnail_url || video?.thumbnail;
   if (url && url.trim()) return url;
   return 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=900&q=80';
 }
 
+/**
+ * Get user ID from a video object, handling multiple property name variations.
+ * 
+ * @param {object} video - Video object from API
+ * @returns {string} User ID or empty string
+ */
 function getUserId(video) {
   return video?.user_id || video?.userid || video?.userId || '';
 }
 
+/**
+ * Get avatar URL from a user object with a default fallback.
+ * 
+ * @param {object} user - User object from API
+ * @returns {string} Avatar URL
+ */
 function getAvatarUrl(user) {
   return user?.avatar || '/default.png';
 }
 
+/**
+ * Get creation timestamp from an item, handling multiple property name variations.
+ * 
+ * @param {object} item - Object with a created_at field
+ * @returns {string} Creation timestamp or empty string
+ */
 function getCreatedAt(item) {
   return item?.created_at || item?.createdat || item?.createdAt || '';
 }
 
+/**
+ * Get video title with a fallback to 'Untitled video'.
+ * 
+ * @param {object} video - Video object from API
+ * @returns {string} Video title
+ */
 function getTitle(video) {
   return video?.title || 'Untitled video';
 }
 
+// =============================================================================
+// HTML Template Generators
+// =============================================================================
+// Functions that generate HTML strings for rendering user cards, video cards,
+// and uploaded video cards with action buttons.
+// =============================================================================
+
+/**
+ * Generate HTML for a user card displayed in following lists.
+ * Shows avatar, username, bio, follower count, and a profile link.
+ * 
+ * @param {object} user - User object with id, username, bio, avatar, followers
+ * @returns {string} HTML string for the user card
+ */
+function userCardTemplate(user) {
+  return `
+    <div class="user-card">
+      <img class="user-avatar" src="${getAvatarUrl(user)}" alt="${user.username || 'User'}">
+      <div class="user-info">
+        <strong>${user.username || 'Unknown user'}</strong>
+        <p class="muted">${user.bio || 'No bio yet.'}</p>
+        <small class="muted">${user.followers || 0} followers</small>
+      </div>
+      <a class="btn btn-secondary" href="/profile.html?id=${user.id}">View profile</a>
+    </div>
+  `;
+}
+
+/**
+ * Generate HTML for an uploaded video card (owner view on My Profile page).
+ * Includes privacy status, watch link, privacy toggle button, and delete button.
+ * The privacy toggle button uses data attributes to track current state.
+ * 
+ * @param {object} video - Video object with id, title, caption, is_private
+ * @returns {string} HTML string for the uploaded video card
+ */
+function uploadedVideoTemplate(video) {
+  const isPrivate = Boolean(video.is_private);
+
+  return `
+    <article class="video-card">
+      <img class="video-thumb" src="${getThumbUrl(video)}" alt="${getTitle(video)}" loading="lazy">
+      <div class="video-body">
+        <div>
+          <h3>${getTitle(video)}</h3>
+          <p class="muted">${video.caption || ''}</p>
+          <p class="muted">${isPrivate ? 'Private' : 'Public'}</p>
+        </div>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="/video.html?id=${video.id}">Watch</a>
+          <button
+            class="btn btn-secondary"
+            type="button"
+            data-toggle-private="${video.id}"
+            data-private-next="${isPrivate ? 0 : 1}"
+          >
+            ${isPrivate ? 'Make Public' : 'Make Private'}
+          </button>
+          <button class="btn btn-secondary" type="button" data-delete-video="${video.id}">Delete</button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+/**
+ * Generate HTML for a standard video card displayed in feeds and recommendations.
+ * Shows creator info chip (avatar, username, category), title, caption,
+ * view/like/comment stats, and action buttons (Watch, Profile).
+ * 
+ * @param {object} video - Video object with creator info and stats
+ * @returns {string} HTML string for the video card
+ */
 function cardTemplate(video) {
   return `
     <article class="video-card">
@@ -51,7 +197,7 @@ function cardTemplate(video) {
           <img src="${getAvatarUrl(video)}" alt="${video.username || 'Creator'}">
           <div>
             <strong>${video.username || 'Unknown creator'}</strong>
-            <div class="muted">${video.category || video.favorite_tag || 'Creator'}</div>
+            <div class="muted">${video.category || 'Creator'}</div>
           </div>
         </div>
 
@@ -74,16 +220,40 @@ function cardTemplate(video) {
   `;
 }
 
+// =============================================================================
+// Session Management & Navigation
+// =============================================================================
+// Functions for checking authentication state, managing sidebar links,
+// and handling logout across all pages.
+// =============================================================================
+
+/**
+ * Fetch the current user's session information from the backend.
+ * Returns { loggedIn: false } on failure so unauthenticated states
+ * can be handled gracefully throughout the application.
+ * 
+ * @returns {Promise<object>} Session object with loggedIn flag and user data
+ */
 async function loadSession() {
   return api('/api/me').catch(() => ({ loggedIn: false }));
 }
 
+/**
+ * Configure sidebar navigation links based on the user's session state.
+ * - Updates "My Profile" link to point to /my-profile.html (if logged in)
+ *   or /login.html (if not authenticated)
+ * - Attaches logout event handlers that call the logout API and redirect
+ *   to the login page
+ * 
+ * @param {object} session - Current session data from loadSession()
+ */
 function wireSidebarLinks(session) {
   const myProfileLink = document.getElementById('myProfileLink');
   if (myProfileLink) {
     myProfileLink.href = session.loggedIn ? '/my-profile.html' : '/login.html';
   }
 
+  // Logout handler: calls logout API, clears session, redirects to login
   const doLogout = async (e) => {
     if (e) e.preventDefault();
     await api('/api/logout', { method: 'POST' }).catch(() => null);
@@ -97,16 +267,31 @@ function wireSidebarLinks(session) {
   if (logoutBtn) logoutBtn.addEventListener('click', doLogout);
 }
 
+// =============================================================================
+// Login / Signup Page Initializer
+// =============================================================================
+// Handles tab switching between login and signup forms, form submission,
+// authentication requests, error display, and post-login redirect.
+// =============================================================================
+
+/**
+ * Initialize the login/signup page.
+ * Manages tab switching between login and signup modes, processes form
+ * submissions for both authentication endpoints, displays error messages,
+ * and redirects to the home page on successful login/signup.
+ */
 async function initLoginPage() {
   const loginForm = document.getElementById('loginForm');
   const signupForm = document.getElementById('signupForm');
   const msg = document.getElementById('authMessage');
   const tabs = document.querySelectorAll('[data-auth-tab]');
 
+  // Tab switching: toggle visibility between Login and Signup forms
   tabs.forEach((tab) => {
     tab.addEventListener('click', () => {
       tabs.forEach((t) => t.classList.remove('is-active'));
       tab.classList.add('is-active');
+
       const isLogin = tab.dataset.authTab === 'login';
       loginForm.classList.toggle('hidden', !isLogin);
       signupForm.classList.toggle('hidden', isLogin);
@@ -114,9 +299,11 @@ async function initLoginPage() {
     });
   });
 
+  // Login form submission handler
   loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = Object.fromEntries(new FormData(loginForm).entries());
+
     try {
       await api('/api/login', { method: 'POST', body: JSON.stringify(formData) });
       window.location.href = '/home.html';
@@ -125,9 +312,11 @@ async function initLoginPage() {
     }
   });
 
+  // Signup form submission handler
   signupForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = Object.fromEntries(new FormData(signupForm).entries());
+
     try {
       await api('/api/signup', { method: 'POST', body: JSON.stringify(formData) });
       window.location.href = '/home.html';
@@ -137,44 +326,237 @@ async function initLoginPage() {
   });
 }
 
+// =============================================================================
+// Home Page Initializer (Recommendation Feed)
+// =============================================================================
+// Loads video recommendations from the API and provides comprehensive client-side
+// filtering and sorting capabilities. Features include:
+// - Filtering by views, likes, comments, and date ranges
+// - Sorting by views, likes, comments, or date (ascending/descending)
+// - Date preset buttons (Week, Month, Year, Custom range)
+// - Collapsible filter panel with reset functionality
+// - Video upload form integration
+// - Real-time result count display
+// =============================================================================
+
+/**
+ * Initialize the home page recommendation feed.
+ * Fetches video recommendations, sets up filtering and sorting controls,
+ * manages the upload form, and renders the video grid with real-time updates
+ * as filter/sort parameters change.
+ */
 async function initHomePage() {
+  // DOM element references for the home page
   const recommendationGrid = document.getElementById('recommendationGrid');
   const recommendationMessage = document.getElementById('recommendationMessage');
-  const recommendationSort = document.getElementById('recommendationSort');
+  const recommendationSort = document.getElementById('sortField');
+  const sortAscending = document.getElementById('sortAscending');
+  const resultCount = document.getElementById('resultCount');
   const welcomeText = document.getElementById('welcomeText');
   const uploadForm = document.getElementById('uploadForm');
   const uploadMessage = document.getElementById('uploadMessage');
+  const toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
+  const filterContent = document.getElementById('filterContent');
+  const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+  const customDateRange = document.getElementById('customDateRange');
+  const applyDateBtn = document.getElementById('applyDateBtn');
+  const filterErrorMessage = document.getElementById('filterErrorMessage');
 
+  // Load session and configure sidebar navigation
   const session = await loadSession();
   wireSidebarLinks(session);
 
+  // Display personalized welcome message based on auth state
   welcomeText.textContent = session.loggedIn
-    ? `Signed in as ${session.user?.username || session.username}. Favorite tag: ${session.user?.favorite_tag || 'Not set'}.`
+    ? `Signed in as ${session.user?.username || session.username}.`
     : 'Browsing demo mode. Login to personalize recommendations and upload videos.';
 
+  // Store fetched recommendations in memory for client-side filtering
   let recommendations = [];
 
-  function sortVideos(videos, sortBy) {
-    return [...videos].sort((a, b) => {
-      const aValue = Number(a?.[sortBy] || 0);
-      const bValue = Number(b?.[sortBy] || 0);
-      return bValue - aValue;
+  // =========================================================================
+  // Filter Helper Functions (Parsing, Validation, Application)
+  // =========================================================================
+
+  /** Parse a numeric input field value (e.g., minViews, maxLikes) */
+  function parseNumberInput(id) {
+    const value = document.getElementById(id)?.value?.trim();
+    return value ? Number(value) : null;
+  }
+
+  /** Parse a date input field value */
+  function parseDateInput(id) {
+    const value = document.getElementById(id)?.value;
+    return value ? new Date(value) : null;
+  }
+
+  /** Clear any visible filter error message */
+  function clearFilterError() {
+    if (!filterErrorMessage) return;
+    filterErrorMessage.textContent = '';
+    filterErrorMessage.classList.add('hidden');
+  }
+
+  /** Display a filter validation error message */
+  function showFilterError(message) {
+    if (!filterErrorMessage) return;
+    filterErrorMessage.textContent = message;
+    filterErrorMessage.classList.remove('hidden');
+  }
+
+  /**
+   * Validate all filter inputs before applying them.
+   * Checks for:
+   * - Negative numbers in views/likes/comments ranges
+   * - Min values not exceeding max values for each range
+   * - Start date not later than end date
+   * 
+   * @returns {boolean} True if all filters are valid
+   */
+  function validateFilters() {
+    const ranges = [
+      ['Views', parseNumberInput('minViews'), parseNumberInput('maxViews')],
+      ['Likes', parseNumberInput('minLikes'), parseNumberInput('maxLikes')],
+      ['Comments', parseNumberInput('minComments'), parseNumberInput('maxComments')]
+    ];
+
+    for (const [label, min, max] of ranges) {
+      if ((min !== null && min < 0) || (max !== null && max < 0)) {
+        showFilterError(`${label} cannot be negative.`);
+        return false;
+      }
+
+      if (min !== null && max !== null && min > max) {
+        showFilterError(`${label} minimum cannot be greater than maximum.`);
+        return false;
+      }
+    }
+
+    const startDate = parseDateInput('startDate');
+    const endDate = parseDateInput('endDate');
+
+    if (startDate && endDate && startDate > endDate) {
+      showFilterError('Start date cannot be later than end date.');
+      return false;
+    }
+
+    clearFilterError();
+    return true;
+  }
+
+  /** Check if a numeric value falls within an optional [min, max] range */
+  function withinRange(value, min, max) {
+    if (min !== null && value < min) return false;
+    if (max !== null && value > max) return false;
+    return true;
+  }
+
+  /**
+   * Apply all active filters to the videos array.
+   * Filters by: views range, likes range, comments range, and date range.
+   * Videos must pass ALL filter conditions to be included.
+   * 
+   * @param {Array} videos - Array of video objects to filter
+   * @returns {Array} Filtered video array
+   */
+  function filterVideos(videos) {
+    const minViews = parseNumberInput('minViews');
+    const maxViews = parseNumberInput('maxViews');
+    const minLikes = parseNumberInput('minLikes');
+    const maxLikes = parseNumberInput('maxLikes');
+    const minComments = parseNumberInput('minComments');
+    const maxComments = parseNumberInput('maxComments');
+    const startDate = parseDateInput('startDate');
+    const endDate = parseDateInput('endDate');
+
+    return videos.filter((video) => {
+      const views = Number(video.views || 0);
+      const likes = Number(video.likes || 0);
+      const comments = Number(video.comments || 0);
+
+      if (!withinRange(views, minViews, maxViews)) return false;
+      if (!withinRange(likes, minLikes, maxLikes)) return false;
+      if (!withinRange(comments, minComments, maxComments)) return false;
+
+      // Date range filtering (with inclusive end date at 23:59:59)
+      if (startDate || endDate) {
+        const createdAt = getCreatedAt(video);
+        if (!createdAt) return false;
+
+        const videoDate = new Date(createdAt);
+        if (startDate && videoDate < startDate) return false;
+
+        if (endDate) {
+          const endOfDay = new Date(endDate);
+          endOfDay.setHours(23, 59, 59, 999);
+          if (videoDate > endOfDay) return false;
+        }
+      }
+
+      return true;
     });
   }
 
+  /**
+   * Sort videos by a specified field in ascending or descending order.
+   * Supports sorting by: views, likes, comments, date
+   * 
+   * @param {Array} videos - Array of video objects to sort
+   * @param {string} sortBy - Field name to sort by ('views', 'likes', 'comments', 'date')
+   * @param {boolean} ascending - True for ascending order, false for descending
+   * @returns {Array} Sorted video array (new array, original unchanged)
+   */
+  function sortVideos(videos, sortBy, ascending) {
+    return [...videos].sort((a, b) => {
+      let aValue = 0;
+      let bValue = 0;
+
+      if (sortBy === 'date') {
+        aValue = new Date(getCreatedAt(a) || 0).getTime();
+        bValue = new Date(getCreatedAt(b) || 0).getTime();
+      } else {
+        aValue = Number(a?.[sortBy] || 0);
+        bValue = Number(b?.[sortBy] || 0);
+      }
+
+      return ascending ? aValue - bValue : bValue - aValue;
+    });
+  }
+
+  /**
+   * Main render function for the recommendation grid.
+   * Validates filters, applies filtering, sorts results, renders cards,
+   * and updates the result count display.
+   */
   function renderRecommendations() {
     if (!recommendations.length) {
       recommendationGrid.innerHTML = '';
       recommendationMessage.textContent = 'No recommendations yet.';
+      if (resultCount) resultCount.textContent = '0 videos found';
       return;
     }
 
+    if (!validateFilters()) {
+      recommendationGrid.innerHTML = '';
+      recommendationMessage.textContent = 'Please fix your filters.';
+      if (resultCount) resultCount.textContent = '0 videos found';
+      return;
+    }
+
+    const filtered = filterVideos(recommendations);
     const sortBy = recommendationSort?.value || 'views';
-    const sorted = sortVideos(recommendations, sortBy);
+    const ascending = Boolean(sortAscending?.checked);
+    const sorted = sortVideos(filtered, sortBy, ascending);
+
     recommendationGrid.innerHTML = sorted.map(cardTemplate).join('');
-    recommendationMessage.textContent = '';
+    recommendationMessage.textContent = sorted.length ? '' : 'No videos match your filters.';
+
+    if (resultCount) {
+      resultCount.textContent = `${sorted.length} video${sorted.length === 1 ? '' : 's'} found`;
+    }
   }
 
+  // Load initial recommendations from the API
   try {
     recommendations = await api('/api/recommendations');
     renderRecommendations();
@@ -182,10 +564,85 @@ async function initHomePage() {
     recommendationMessage.textContent = error.message;
   }
 
-  recommendationSort?.addEventListener('change', renderRecommendations);
+  // =========================================================================
+  // Event Listeners for Filtering and Sorting Controls
+  // =========================================================================
 
+  // Re-render when sort dropdown or sort order checkbox changes
+  recommendationSort?.addEventListener('change', renderRecommendations);
+  sortAscending?.addEventListener('change', renderRecommendations);
+
+  // Re-render on any filter input change (debounced naturally by input events)
+  ['minViews', 'maxViews', 'minLikes', 'maxLikes', 'minComments', 'maxComments', 'startDate', 'endDate']
+    .forEach((id) => document.getElementById(id)?.addEventListener('input', renderRecommendations));
+
+  // Date preset buttons (Week, Month, Year, Custom)
+  document.querySelectorAll('.date-preset-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.preset;
+      const startDateInput = document.getElementById('startDate');
+      const endDateInput = document.getElementById('endDate');
+      const today = new Date();
+      const format = (d) => d.toISOString().split('T')[0];
+
+      // Update active button visual state
+      document.querySelectorAll('.date-preset-btn').forEach((el) => el.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Show custom date range inputs when 'custom' preset is selected
+      if (preset === 'custom') {
+        customDateRange?.classList.remove('hidden');
+        return;
+      }
+
+      customDateRange?.classList.add('hidden');
+
+      // Calculate start date based on selected preset
+      let start = new Date(today);
+      let end = new Date(today);
+
+      if (preset === 'week') start.setDate(today.getDate() - 7);
+      if (preset === 'month') start.setMonth(today.getMonth() - 1);
+      if (preset === 'year') start.setFullYear(today.getFullYear() - 1);
+
+      if (startDateInput) startDateInput.value = format(start);
+      if (endDateInput) endDateInput.value = format(end);
+
+      renderRecommendations();
+    });
+  });
+
+  // Apply button for custom date range inputs
+  applyDateBtn?.addEventListener('click', renderRecommendations);
+
+  // Toggle filter panel visibility (collapse/expand)
+  toggleFiltersBtn?.addEventListener('click', () => {
+    const hidden = filterContent?.classList.toggle('hidden');
+    toggleFiltersBtn.textContent = hidden ? '▼ Show Filters' : '▲ Hide Filters';
+  });
+
+  // Reset all filters to their default values
+  resetFiltersBtn?.addEventListener('click', () => {
+    ['minViews', 'maxViews', 'minLikes', 'maxLikes', 'minComments', 'maxComments', 'startDate', 'endDate']
+      .forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+
+    customDateRange?.classList.add('hidden');
+    document.querySelectorAll('.date-preset-btn').forEach((el) => el.classList.remove('active'));
+
+    if (recommendationSort) recommendationSort.value = 'views';
+    if (sortAscending) sortAscending.checked = false;
+
+    clearFilterError();
+    renderRecommendations();
+  });
+
+  // Video upload form submission handler
   uploadForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
+
     try {
       const formData = new FormData(uploadForm);
       const response = await fetch('/api/upload', {
@@ -193,8 +650,10 @@ async function initHomePage() {
         body: formData,
         credentials: 'same-origin'
       });
+
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Upload failed');
+
       uploadMessage.textContent = 'Upload successful. Reloading recommendations...';
       setTimeout(() => window.location.reload(), 700);
     } catch (error) {
@@ -203,15 +662,43 @@ async function initHomePage() {
   });
 }
 
+// =============================================================================
+// My Profile Dashboard Page Initializer
+// =============================================================================
+// Owner-only dashboard displaying comprehensive user activity and content.
+// Sections include:
+// - Profile header with stats (followers, following)
+// - Following list (users the current user follows)
+// - Liked videos gallery
+// - Commented videos gallery
+// - Uploaded videos with privacy toggle and delete controls
+// - Recently viewed videos from view history
+// - Video upload form
+// =============================================================================
+
+/**
+ * Initialize the My Profile dashboard page (authenticated users only).
+ * Fetches and renders the user's complete profile data including following list,
+ * engagement history, uploaded content, and recent activity. Provides controls
+ * for toggling video privacy and deleting uploaded videos.
+ */
 async function initMyProfilePage() {
+  // DOM element references for all dashboard sections
   const header = document.getElementById('myProfileHeader');
+  const uploadForm = document.getElementById('uploadForm');
+  const uploadMessage = document.getElementById('uploadMessage');
+  const followingGrid = document.getElementById('followingGrid');
+  const followingMessage = document.getElementById('followingMessage');
   const likedGrid = document.getElementById('myLikedGrid');
   const likedMessage = document.getElementById('myLikedMessage');
   const commentedGrid = document.getElementById('myCommentedGrid');
   const commentedMessage = document.getElementById('myCommentedMessage');
+  const uploadedGrid = document.getElementById('myUploadedGrid');
+  const uploadedMessage = document.getElementById('myUploadedMessage');
   const recentGrid = document.getElementById('myRecentGrid');
   const recentMessage = document.getElementById('myRecentMessage');
 
+  // Redirect unauthenticated users to login page
   const session = await loadSession();
   if (!session.loggedIn) {
     window.location.href = '/login.html';
@@ -220,43 +707,155 @@ async function initMyProfilePage() {
 
   wireSidebarLinks(session);
 
-  try {
-    const data = await api('/api/me/profile');
+  /**
+   * Fetch and render all profile dashboard data from the API.
+   * Updates all sections: header, following, liked, commented, uploaded, recent.
+   */
+  async function loadProfileData() {
+    try {
+      const data = await api('/api/me/profile');
+      const user = data.user;
 
-    const user = data.user;
-    header.innerHTML = `
-      <div class="profile-top">
-        <img class="avatar-lg" src="${getAvatarUrl(user)}" alt="${user.username}">
-        <div>
-          <p class="eyebrow">My profile</p>
-          <h1>${user.username}</h1>
-          <p class="muted">${user.bio || 'No bio yet.'}</p>
-          <div class="stat-row">
-            <span>${user.followers || 0} followers</span>
-            <span>${user.following || 0} following</span>
+      // Render profile header with stats
+      if (header) {
+        header.innerHTML = `
+          <div class="profile-top">
+            <img class="avatar-lg" src="${getAvatarUrl(user)}" alt="${user.username}">
+            <div>
+              <p class="eyebrow">My profile</p>
+              <h1>${user.username}</h1>
+              <p class="muted">${user.bio || 'No bio yet.'}</p>
+              <div class="stat-row">
+                <span>${user.followers || 0} followers</span>
+                <span>${user.following || 0} following</span>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    `;
+        `;
+      }
 
-    const liked = data.liked || [];
-    likedGrid.innerHTML = liked.map(cardTemplate).join('');
-    likedMessage.textContent = liked.length ? '' : 'You have not liked any videos yet.';
+      // Render following list
+      const following = data.following || [];
+      if (followingGrid) {
+        followingGrid.innerHTML = following.map(userCardTemplate).join('');
+      }
+      if (followingMessage) {
+        followingMessage.textContent = following.length ? '' : 'You are not following anyone yet.';
+      }
 
-    const commented = data.commented || [];
-    commentedGrid.innerHTML = commented.map(cardTemplate).join('');
-    commentedMessage.textContent = commented.length ? '' : 'You have not commented on any videos yet.';
+      // Render liked videos gallery
+      const liked = data.liked || [];
+      if (likedGrid) likedGrid.innerHTML = liked.map(cardTemplate).join('');
+      if (likedMessage) likedMessage.textContent = liked.length ? '' : 'You have not liked any videos yet.';
 
-    const recent = data.recent || [];
-    recentGrid.innerHTML = recent.map(cardTemplate).join('');
-    recentMessage.textContent = recent.length ? '' : 'No recent views recorded yet.';
-  } catch (error) {
-    likedMessage.textContent = error.message;
-    commentedMessage.textContent = error.message;
-    recentMessage.textContent = error.message;
+      // Render commented videos gallery
+      const commented = data.commented || [];
+      if (commentedGrid) commentedGrid.innerHTML = commented.map(cardTemplate).join('');
+      if (commentedMessage) commentedMessage.textContent = commented.length ? '' : 'You have not commented on any videos yet.';
+
+      // Render uploaded videos with management controls
+      const uploaded = data.uploaded || [];
+      if (uploadedGrid) uploadedGrid.innerHTML = uploaded.map(uploadedVideoTemplate).join('');
+      if (uploadedMessage) uploadedMessage.textContent = uploaded.length ? '' : 'You have not uploaded any videos yet.';
+
+      // Render recently viewed videos from history
+      const recent = data.recent || [];
+      if (recentGrid) recentGrid.innerHTML = recent.map(cardTemplate).join('');
+      if (recentMessage) recentMessage.textContent = recent.length ? '' : 'No recent views recorded yet.';
+    } catch (error) {
+      // Display error message in all sections on failure
+      if (followingMessage) followingMessage.textContent = error.message;
+      if (likedMessage) likedMessage.textContent = error.message;
+      if (commentedMessage) commentedMessage.textContent = error.message;
+      if (uploadedMessage) uploadedMessage.textContent = error.message;
+      if (recentMessage) recentMessage.textContent = error.message;
+    }
   }
+
+  // Initial data load
+  await loadProfileData();
+
+  // Event delegation for privacy toggle and delete buttons on uploaded videos
+  uploadedGrid?.addEventListener('click', async (e) => {
+    const toggleBtn = e.target.closest('[data-toggle-private]');
+    const deleteBtn = e.target.closest('[data-delete-video]');
+
+    // Handle privacy toggle (public <-> private)
+    if (toggleBtn) {
+      const videoId = toggleBtn.getAttribute('data-toggle-private');
+      const next = Number(toggleBtn.getAttribute('data-private-next')) === 1;
+
+      try {
+        await api(`/api/videos/${videoId}/privacy`, {
+          method: 'PUT',
+          body: JSON.stringify({ isPrivate: next })
+        });
+
+        if (uploadedMessage) {
+          uploadedMessage.textContent = next ? 'Video set to private.' : 'Video is now public.';
+        }
+
+        await loadProfileData();
+      } catch (error) {
+        if (uploadedMessage) uploadedMessage.textContent = error.message;
+      }
+
+      return;
+    }
+
+    // Handle video deletion with confirmation dialog
+    if (deleteBtn) {
+      const videoId = deleteBtn.getAttribute('data-delete-video');
+      const confirmed = window.confirm('Delete this video permanently?');
+      if (!confirmed) return;
+
+      try {
+        await api(`/api/videos/${videoId}`, { method: 'DELETE' });
+        if (uploadedMessage) uploadedMessage.textContent = 'Video deleted.';
+        await loadProfileData();
+      } catch (error) {
+        if (uploadedMessage) uploadedMessage.textContent = error.message;
+      }
+    }
+  });
+
+  // Upload form submission handler (from My Profile page)
+  uploadForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    try {
+      const formData = new FormData(uploadForm);
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Upload failed');
+
+      if (uploadMessage) uploadMessage.textContent = 'Upload successful!';
+      await loadProfileData();
+    } catch (error) {
+      if (uploadMessage) uploadMessage.textContent = error.message;
+    }
+  });
 }
 
+// =============================================================================
+// Public Profile Page Initializer
+// =============================================================================
+// Displays another user's public profile information including:
+// - Profile header with avatar, username, bio, follower/following counts
+// - Follow/Unfollow button (if viewing another user's profile)
+// - Grid of the user's public videos
+// =============================================================================
+
+/**
+ * Initialize a public profile page for viewing other users (or own profile).
+ * Fetches user data and videos from the API, renders the profile header with
+ * follow/unfollow functionality, and displays the user's video gallery.
+ */
 async function initProfilePage() {
   const profileId = queryParam('id') || '1';
   const header = document.getElementById('profileHeader');
@@ -271,6 +870,7 @@ async function initProfilePage() {
     const user = data.user;
     const isOwnProfile = String(session.userId || '') === String(user.id || '');
 
+    // Render profile header with conditional follow button
     header.innerHTML = `
       <div class="profile-top">
         <img class="avatar-lg" src="${getAvatarUrl(user)}" alt="${user.username}">
@@ -281,23 +881,27 @@ async function initProfilePage() {
           <div class="stat-row">
             <span>${user.followers || 0} followers</span>
             <span>${user.following || 0} following</span>
-            <span>Favorite tag: ${user.favorite_tag || 'Not set'}</span>
           </div>
         </div>
-        ${isOwnProfile
-        ? ''
-        : `<button class="btn btn-primary" id="followBtn">${user.is_following || user.isfollowing ? 'Following' : 'Follow'}</button>`
-      }
+        ${
+          isOwnProfile
+            ? ''
+            : `<button class="btn btn-primary" id="followBtn">${user.is_following || user.isfollowing ? 'Following' : 'Follow'}</button>`
+        }
       </div>
     `;
 
+    // Render user's video gallery
     grid.innerHTML = (data.videos || []).map(cardTemplate).join('');
+
+    // Show appropriate message if no videos exist
     if (!data.videos?.length) {
       message.textContent = isOwnProfile
         ? 'You have not uploaded any videos yet.'
         : 'This creator has not uploaded any videos yet.';
     }
 
+    // Follow/Unfollow button handler (only for other users' profiles)
     if (!isOwnProfile) {
       document.getElementById('followBtn')?.addEventListener('click', async () => {
         try {
@@ -313,6 +917,23 @@ async function initProfilePage() {
   }
 }
 
+// =============================================================================
+// Video Player Page Initializer
+// =============================================================================
+// Displays a single video with full playback controls and social features:
+// - HTML5 video player with poster image
+// - Video metadata (title, caption, creator, view count)
+// - Like/Unlike button with live count update
+// - Comment section with comment list and posting form
+// - Recommended videos sidebar (personalized suggestions)
+// =============================================================================
+
+/**
+ * Initialize the video watch page.
+ * Loads the video player, metadata, like status, comments, and recommended
+ * videos from the API. Handles like toggling and comment submission with
+ * optimistic UI updates.
+ */
 async function initVideoPage() {
   const videoId = queryParam('id') || '1';
   const playerWrap = document.getElementById('videoPlayerWrap');
@@ -320,14 +941,21 @@ async function initVideoPage() {
   const commentList = document.getElementById('commentList');
   const commentForm = document.getElementById('commentForm');
   const commentMessage = document.getElementById('commentMessage');
+  const recommendedGrid = document.getElementById('recommendedGrid');
+  const recommendedMessage = document.getElementById('recommendedMessage');
 
   const session = await loadSession();
   wireSidebarLinks(session);
 
+  /**
+   * Load and render video details, player, and comments.
+   * Increments view count on the backend via the API call.
+   */
   async function loadVideo() {
     const data = await api(`/api/videos/${videoId}`);
     const video = data.video;
 
+    // Render HTML5 video player
     playerWrap.innerHTML = `
       <video controls poster="${getThumbUrl(video)}">
         <source src="${getVideoUrl(video)}" type="video/mp4">
@@ -335,6 +963,7 @@ async function initVideoPage() {
       </video>
     `;
 
+    // Render video metadata and action buttons
     meta.innerHTML = `
       <p class="eyebrow">Video page</p>
       <h1>${getTitle(video)}</h1>
@@ -347,15 +976,19 @@ async function initVideoPage() {
       <p class="muted">${data.creatorBio || video.bio || ''}</p>
     `;
 
+    // Render comments list
     const comments = data.comments || [];
-    commentList.innerHTML = comments.map((comment) => `
-      <div class="comment-item">
-        <strong>${comment.username || 'User'}</strong>
-        <p>${comment.text || ''}</p>
-        <small class="muted">${getCreatedAt(comment) ? new Date(getCreatedAt(comment)).toLocaleString() : ''}</small>
-      </div>
-    `).join('');
+    commentList.innerHTML = comments
+      .map((comment) => `
+        <div class="comment-item">
+          <strong>${comment.username || 'User'}</strong>
+          <p>${comment.text || ''}</p>
+          <small class="muted">${getCreatedAt(comment) ? new Date(getCreatedAt(comment)).toLocaleString() : ''}</small>
+        </div>
+      `)
+      .join('');
 
+    // Like button handler - toggles like status and refreshes video data
     document.getElementById('likeBtn')?.addEventListener('click', async () => {
       try {
         await api(`/api/videos/${videoId}/like`, { method: 'POST' });
@@ -366,22 +999,47 @@ async function initVideoPage() {
     });
   }
 
+  /**
+   * Load and render personalized video recommendations.
+   * Based on user's engagement history (likes and comments).
+   */
+  async function loadRecommended() {
+    if (!recommendedGrid) return;
+
+    try {
+      const recommended = await api(`/api/videos/${videoId}/recommended`);
+      recommendedGrid.innerHTML = recommended.map(cardTemplate).join('');
+
+      if (recommendedMessage) {
+        recommendedMessage.textContent = recommended.length ? '' : 'No recommendations available yet.';
+      }
+    } catch (error) {
+      if (recommendedMessage) recommendedMessage.textContent = error.message;
+    }
+  }
+
+  // Initial data load
   try {
     await loadVideo();
+    await loadRecommended();
   } catch (error) {
     meta.innerHTML = `<p class="status-text">${error.message}</p>`;
   }
 
+  // Comment form submission handler
   commentForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
+
     try {
       const payload = Object.fromEntries(new FormData(commentForm).entries());
       await api(`/api/videos/${videoId}/comments`, {
         method: 'POST',
         body: JSON.stringify(payload)
       });
+
       commentForm.reset();
       await loadVideo();
+      await loadRecommended();
       commentMessage.textContent = 'Comment posted.';
     } catch (error) {
       commentMessage.textContent = error.message;
@@ -389,7 +1047,180 @@ async function initVideoPage() {
   });
 }
 
-// Added a utility function to apply animations dynamically
+// =============================================================================
+// Settings Page Initializer
+// =============================================================================
+// Account management page for authenticated users. Features include:
+// - View current username and bio
+// - Change username (requires password confirmation)
+// - Change password (requires current password)
+// - Update bio with character counter (max 200 characters)
+// - View login history with IP addresses and user agents
+// =============================================================================
+
+/**
+ * Initialize the account settings page.
+ * Loads current user data, manages form submissions for updating username,
+ * password, and bio, and displays login history for security auditing.
+ */
+async function initSettingsPage() {
+  // Redirect unauthenticated users to login
+  const session = await loadSession();
+  if (!session.loggedIn) {
+    window.location.href = '/login.html';
+    return;
+  }
+
+  wireSidebarLinks(session);
+
+  // DOM element references
+  const currentUsername = document.getElementById('currentUsername');
+  const currentBio = document.getElementById('currentBio');
+  const bioInput = document.getElementById('newBio');
+  const bioCount = document.getElementById('bioCount');
+  const loginHistoryList = document.getElementById('loginHistoryList');
+
+  // Load and populate current user data
+  try {
+    const userData = await api('/api/me');
+    const user = userData.user || {};
+
+    if (currentUsername) currentUsername.value = user.username || '';
+    if (currentBio) currentBio.value = user.bio || '';
+    if (bioInput) bioInput.value = user.bio || '';
+    if (bioCount) bioCount.textContent = String((bioInput?.value || '').length);
+  } catch (error) {
+    if (loginHistoryList) {
+      loginHistoryList.innerHTML = `<p class="status-text">${error.message}</p>`;
+    }
+  }
+
+  // Bio character counter (max 200 characters enforced by backend)
+  bioInput?.addEventListener('input', () => {
+    if (bioCount) bioCount.textContent = String(bioInput.value.length);
+  });
+
+  // Username change form submission
+  document.getElementById('changeUsernameForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const usernameMessage = document.getElementById('usernameMessage');
+    const newUsername = document.getElementById('newUsername')?.value?.trim();
+    const password = document.getElementById('usernamePassword')?.value || '';
+
+    try {
+      const result = await api('/api/me/username', {
+        method: 'PUT',
+        body: JSON.stringify({ newUsername, password })
+      });
+
+      if (currentUsername && result.username) currentUsername.value = result.username;
+      if (usernameMessage) usernameMessage.textContent = 'Username updated.';
+
+      // Clear form fields on success
+      document.getElementById('newUsername').value = '';
+      document.getElementById('usernamePassword').value = '';
+    } catch (error) {
+      if (usernameMessage) usernameMessage.textContent = error.message;
+    }
+  });
+
+  // Password change form submission
+  document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const passwordMessage = document.getElementById('passwordMessage');
+    const currentPassword = document.getElementById('currentPassword')?.value || '';
+    const newPassword = document.getElementById('newPassword')?.value || '';
+    const confirmPassword = document.getElementById('confirmPassword')?.value || '';
+
+    // Client-side password match validation
+    if (newPassword !== confirmPassword) {
+      if (passwordMessage) passwordMessage.textContent = 'New passwords do not match.';
+      return;
+    }
+
+    try {
+      await api('/api/me/password', {
+        method: 'PUT',
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+
+      if (passwordMessage) passwordMessage.textContent = 'Password updated.';
+
+      // Clear form fields on success
+      document.getElementById('currentPassword').value = '';
+      document.getElementById('newPassword').value = '';
+      document.getElementById('confirmPassword').value = '';
+    } catch (error) {
+      if (passwordMessage) passwordMessage.textContent = error.message;
+    }
+  });
+
+  // Bio update form submission
+  document.getElementById('changeBioForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const bioMessage = document.getElementById('bioMessage');
+    const bio = bioInput?.value || '';
+
+    try {
+      const result = await api('/api/me/bio', {
+        method: 'PUT',
+        body: JSON.stringify({ bio })
+      });
+
+      if (currentBio) currentBio.value = result.bio || bio;
+      if (bioMessage) bioMessage.textContent = 'Bio updated.';
+    } catch (error) {
+      if (bioMessage) bioMessage.textContent = error.message;
+    }
+  });
+
+  // Load and display login history
+  try {
+    const historyData = await api('/api/me/login-history');
+    const history = historyData.history || [];
+
+    if (loginHistoryList) {
+      if (!history.length) {
+        loginHistoryList.innerHTML = '<p class="status-text">No login history available.</p>';
+      } else {
+        loginHistoryList.innerHTML = history
+          .map((entry) => `
+            <div class="history-item">
+              <div class="history-time">
+                <strong>${new Date(entry.login_time).toLocaleString()}</strong>
+              </div>
+              <div class="history-details">
+                <span>IP: ${entry.ip_address || 'Unknown'}</span>
+                <span class="muted">${entry.user_agent || 'Unknown device'}</span>
+              </div>
+            </div>
+          `)
+          .join('');
+      }
+    }
+  } catch (error) {
+    if (loginHistoryList) {
+      loginHistoryList.innerHTML = `<p class="status-text">${error.message}</p>`;
+    }
+  }
+}
+
+// =============================================================================
+// UI Animation Utilities
+// =============================================================================
+// Simple animation helpers for enhancing user interaction feedback.
+// =============================================================================
+
+/**
+ * Apply a temporary CSS animation class to an element.
+ * The class is automatically removed when the animation ends.
+ * 
+ * @param {HTMLElement} element - The DOM element to animate
+ * @param {string} animationName - CSS class name containing the animation
+ */
 function applyAnimation(element, animationName) {
   element.classList.add(animationName);
   element.addEventListener('animationend', () => {
@@ -397,16 +1228,23 @@ function applyAnimation(element, animationName) {
   });
 }
 
-// Example usage: Apply animation to buttons on click
-document.querySelectorAll('.btn').forEach((button) => {
+// Attach click animations to all interactive buttons
+document.querySelectorAll('.btn, .sort-btn, .order-btn, .date-preset-btn').forEach((button) => {
   button.addEventListener('click', () => {
     applyAnimation(button, 'btn-click-animation');
   });
 });
 
-// Page router
+// =============================================================================
+// Page Router
+// =============================================================================
+// Simple client-side router that reads the data-page attribute from the body
+// element and calls the appropriate initialization function for the current page.
+// =============================================================================
+
 if (page === 'login') initLoginPage();
 if (page === 'home') initHomePage();
 if (page === 'my-profile') initMyProfilePage();
 if (page === 'profile') initProfilePage();
 if (page === 'video') initVideoPage();
+if (page === 'settings') initSettingsPage();

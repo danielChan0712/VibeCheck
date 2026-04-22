@@ -23,6 +23,7 @@ CREATE TABLE videos (
   video_url VARCHAR(255) NOT NULL,
   thumbnail_url VARCHAR(255) DEFAULT 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=900&q=80',
   views INT DEFAULT 0,
+  is_private TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
